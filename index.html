@@ -1649,6 +1649,30 @@ function vGDrive(){
   $("#gDl").onclick=()=>saveBlob(new Blob([GAS_CODE],{type:"text/plain"}),"Code.gs");
 }
 
+/* ============ ป้ายกำกับช่องข้อมูล: ให้ทุกช่องมี id/name และ label (แก้คำเตือนใน DevTools และช่วยโปรแกรมอ่านหน้าจอ) ============ */
+let fieldSeq=0, a11yQueued=false;
+function fieldText(el){
+  const t=el.getAttribute("aria-label")||el.getAttribute("placeholder")||el.getAttribute("title");
+  if(t) return t.trim().slice(0,80);
+  const wrap=el.closest(".f,.row,td,th,li,.panel,div"); let near="";
+  if(wrap){ const c=wrap.cloneNode(true); c.querySelectorAll("input,select,textarea,button,script,style").forEach(x=>x.remove()); near=c.textContent.replace(/\s+/g," ").trim(); }
+  return (near||(el.tagName==="SELECT"?"ตัวเลือก":"ช่องข้อมูล")).slice(0,80);
+}
+function a11yFields(){
+  a11yQueued=false;
+  let box=document.getElementById("a11yLabels");
+  if(!box){ box=document.createElement("div"); box.id="a11yLabels"; box.setAttribute("aria-hidden","false"); box.style.cssText="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;left:-9999px"; document.body.appendChild(box); }
+  box.querySelectorAll("label").forEach(l=>{ if(!document.getElementById(l.htmlFor)) l.remove(); });
+  document.querySelectorAll("input:not([type=hidden]),select,textarea").forEach(el=>{
+    if(!el.id&&!el.name) el.name="fld"+(++fieldSeq);
+    if(!el.id) el.id="fld-"+(++fieldSeq);
+    if(el.closest("label")) return;
+    if(document.querySelector('label[for="'+CSS.escape(el.id)+'"]')) return;
+    const l=document.createElement("label"); l.htmlFor=el.id; l.textContent=fieldText(el); box.appendChild(l);
+  });
+}
+function a11yWatch(){ a11yFields(); new MutationObserver(()=>{ if(a11yQueued) return; a11yQueued=true; requestAnimationFrame(a11yFields); }).observe(document.body,{childList:true,subtree:true}); }
+
 /* ============ หมวดจริยธรรมการวิจัย ============ */
 const VULN=["เด็กและเยาวชน (อายุต่ำกว่า 18 ปี)","ผู้สูงอายุ","ผู้ที่มีภาวะบกพร่องด้านการรับรู้หรือการตัดสินใจ","ผู้ป่วยหรือผู้รับบริการในความดูแลของผู้วิจัย","นักศึกษาหรือผู้ใต้บังคับบัญชาของผู้วิจัย","สตรีตั้งครรภ์","ผู้ด้อยโอกาสทางเศรษฐกิจหรือสังคม"];
 const ETHCHK=[
@@ -3360,7 +3384,7 @@ function vExport(){
 
 /* ============ เริ่มทำงาน ============ */
 (async function init(){
-  renderNav(); initBot(); gasAutoStart();
+  renderNav(); initBot(); gasAutoStart(); a11yWatch();
   const c=window.claude; const use=n=> c&&c.use ? c.use(n).catch(()=>null) : Promise.resolve(null);
   const [db,user,sample,dl]=await Promise.all([use("db"),use("user"),use("sample"),use("downloads")]);
   S.claudeSample=sample; S.dl=dl; S.refs=[]; S.chat=[]; S.provider=null; applyAIMode();
