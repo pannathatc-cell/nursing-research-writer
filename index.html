@@ -826,7 +826,7 @@ function makeOpenAISample(key, model, effort){
 }
 /* ============ ผู้ให้บริการ AI และรุ่นโมเดล (ใช้เมื่อเปิดไฟล์นอก claude.ai) ============ */
 const PROVIDERS={
- anthropic:{label:"Claude (Anthropic)",keyLS:"nrw:anthropic_key",modelLS:"nrw:anthropic_model",def:"claude-sonnet-5-5",keyRe:/^sk-ant-/,keyHint:"sk-ant-...",console:"platform.claude.com",
+ anthropic:{label:"Claude (Anthropic)",keyLS:"nrw:anthropic_key",modelLS:"nrw:anthropic_model",def:"claude-opus-5-5",keyRe:/^sk-ant-/,keyHint:"sk-ant-...",console:"platform.claude.com",
   models:[["claude-opus-5-5","Claude Opus 5.5","งานซับซ้อน เขียนและตรวจทั้งเล่มละเอียด | $4 / $20 ต่อล้าน token"],["claude-sonnet-5-5","Claude Sonnet 5.5","สมดุลระหว่างคุณภาพ ความเร็ว และราคา (แนะนำ) | $2 / $10"],["claude-haiku-5-5","Claude Haiku 5.5","เร็วที่สุด ประหยัด เหมาะกับงานสั้น | เริ่มต้น $0.10 / $0.50"],["claude-fable-5-1","Claude Fable 5.1","รุ่นสูงสุด คิดลึก ช้ากว่า ราคาสูง | $10 / $50"]]},
  openai:{label:"OpenAI (GPT)",keyLS:"nrw:openai_key",modelLS:"nrw:openai_model",def:"gpt-6-luna",keyRe:/^sk-/,keyHint:"sk-...",console:"platform.openai.com",
   models:[["gpt-6-astra","GPT-6 Astra","รุ่นเรือธง เหตุผลซับซ้อน | $10 / $50"],["gpt-6.1-sol","GPT-6.1 Sol","ใกล้เคียง Astra ราคาต่ำกว่า | $2 / $10"],["gpt-6-sol","GPT-6 Sol","รุ่น Sol ก่อนหน้า"],["gpt-6.1-terra","GPT-6.1 Terra","เร็ว เขียนเป็นธรรมชาติ | $1 / $5"],["gpt-6-luna","GPT-6 Luna","ประหยัดที่สุด งานปริมาณมาก | $0.10 / $0.50"],["gpt-5.6-luna","GPT-5.6 Luna","รุ่น 5.6 ประหยัด"]]},
@@ -837,8 +837,8 @@ const PROV_LS="nrw:provider";
 const CUSTOM_LS="nrw:custom_cfg", CUSTOM_MODELS_LS="nrw:custom_models";
 const CUSTOM_DEF={name:"GetAPIHub",site:"https://cc.getapihub.com",endpoint:"https://cc.getapihub.com",format:"anthropic"};
 function customCfg(){ try{ return {...CUSTOM_DEF,...(JSON.parse(lsGet(CUSTOM_LS)||"{}"))}; }catch{ return {...CUSTOM_DEF}; } }
-function customModels(){ try{ const a=JSON.parse(lsGet(CUSTOM_MODELS_LS)||"null"); if(Array.isArray(a)&&a.length) return a; }catch{} return ["claude-sonnet-5-5","claude-opus-5-5","claude-haiku-5-5"]; }
-PROVIDERS.custom={get label(){ return "ผู้ให้บริการภายนอก: "+(customCfg().name||"กำหนดเอง"); },keyLS:"nrw:custom_key",modelLS:"nrw:custom_model",def:"claude-sonnet-5-5",keyRe:/^\S{8,}$/,keyHint:"sk-...",
+function customModels(){ try{ const a=JSON.parse(lsGet(CUSTOM_MODELS_LS)||"null"); if(Array.isArray(a)&&a.length) return a; }catch{} return ["claude-opus-5-5","claude-sonnet-5-5","claude-haiku-5-5"]; }
+PROVIDERS.custom={get label(){ return "ผู้ให้บริการภายนอก: "+(customCfg().name||"กำหนดเอง"); },keyLS:"nrw:custom_key",modelLS:"nrw:custom_model",def:"claude-opus-5-5",keyRe:/^\S{8,}$/,keyHint:"sk-...",
   get console(){ return customCfg().site||customCfg().endpoint; },
   get models(){ return customModels().map(id=>[id,id,"โมเดลจากรายการของผู้ให้บริการนี้"]); }};
 function apiBase(u){ return String(u||"").trim().replace(/\/+$/,"").replace(/\/v1$/,""); }
@@ -956,7 +956,9 @@ const MODE_LS="nrw:aimode";
 /* key ที่ผู้ใช้กำหนดไว้ล่วงหน้า (OpenAI) ใช้เมื่อยังไม่มี key ในเบราว์เซอร์ ลบได้ที่หน้าตั้งค่า */
 const PRESET_KEY={custom:"sk-GH7JYSTyvuza1va362q377o1sYuVOyAZLuXo8OfpfmXnJWh1"}; const PRESET_OFF="nrw:preset_off";
 function keyOf(prov){ return lsGet(PROVIDERS[prov].keyLS) || (PRESET_KEY[prov] && !lsGet(PRESET_OFF) ? PRESET_KEY[prov] : ""); }
-function useClaudeAccount(){ S.sample=S.claudeSample; S.provider="claude"; S.modelLabel="Claude (บัญชี claude.ai)"; }
+const CLAUDE_MODEL="claude-opus-5-5";
+function withModel(f){ if(!f) return f; const add=o=>({modelTier:"complex",model:CLAUDE_MODEL,...(o||{})}); const g=(i,o)=>f(i,add(o)); g.json=(i,o)=>f.json(i,add(o)); g.limits=(...a)=>f.limits(...a); return g; }
+function useClaudeAccount(){ S.sample=withModel(S.claudeSample); S.provider="claude"; S.modelLabel="Claude Opus 5.5 (บัญชี claude.ai)"; }
 function applyAIMode(){ const m=lsGet(MODE_LS); if(S.claudeSample && (m==="claude" || (!m && !keyOf("custom")))){ useClaudeAccount(); return; } S.provider=null; useOpenAIIfSet(); }
 function useOpenAIIfSet(){
   if(S.provider==="claude") return;
