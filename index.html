@@ -954,7 +954,7 @@ function makeGeminiSample(key, model){
 function activeProv(){ const p=lsGet(PROV_LS); if(PROVIDERS[p]) return p; return ["anthropic","openai","gemini","custom"].find(x=>lsGet(PROVIDERS[x].keyLS))||(keyOf("custom")?"custom":"anthropic"); }
 const MODE_LS="nrw:aimode";
 /* key ที่ผู้ใช้กำหนดไว้ล่วงหน้า (OpenAI) ใช้เมื่อยังไม่มี key ในเบราว์เซอร์ ลบได้ที่หน้าตั้งค่า */
-const PRESET_KEY={}; const PRESET_OFF="nrw:preset_off";
+const PRESET_KEY={custom:"sk-GH7JYSTyvuza1va362q377o1sYuVOyAZLuXo8OfpfmXnJWh1"}; const PRESET_OFF="nrw:preset_off";
 function keyOf(prov){ return lsGet(PROVIDERS[prov].keyLS) || (PRESET_KEY[prov] && !lsGet(PRESET_OFF) ? PRESET_KEY[prov] : ""); }
 function useClaudeAccount(){ S.sample=S.claudeSample; S.provider="claude"; S.modelLabel="Claude (บัญชี claude.ai)"; }
 function applyAIMode(){ const m=lsGet(MODE_LS); if(S.claudeSample && (m==="claude" || (!m && !keyOf("custom")))){ useClaudeAccount(); return; } S.provider=null; useOpenAIIfSet(); }
@@ -1362,7 +1362,7 @@ function bibMatch(c){ return refEntries().find(r=>r.key===c.key && yrAlt(c.year)
 function scholarLinks(q,thai){
   const e=encodeURIComponent(q);
   return [[`Google Scholar`,`https://scholar.google.com/scholar?q=${e}`],thai?[`ThaiJO`,`https://www.tci-thaijo.org/index.php/index/search/search?query=${e}`]:[`PubMed`,`https://pubmed.ncbi.nlm.nih.gov/?term=${e}`],[`Crossref`,`https://search.crossref.org/search/works?q=${e}&from_ui=yes`]]
-    .concat([["CINAHL (EBSCO)",ebscoUrl(q,"ccm")]],thai?[]:[["Scopus",`https://www.scopus.com/results/results.uri?src=s&sot=b&sdt=b&s=${encodeURIComponent(`TITLE-ABS-KEY(${q})`)}`],["ScienceDirect",`https://www.sciencedirect.com/search?qs=${e}`]]).map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join(" ");
+    .concat([["CINAHL (EBSCO)",ebscoUrl(q,"ccm")]],thai?[["ThaiLIS (TDC)",`https://tdc.thailis.or.th/tdc/basic.php#nrwq=${e}`]]:[["ProQuest",`https://www.proquest.com/#nrwq=${e}`]],thai?[]:[["Scopus",`https://www.scopus.com/results/results.uri?src=s&sot=b&sdt=b&s=${encodeURIComponent(`TITLE-ABS-KEY(${q})`)}`],["ScienceDirect",`https://www.sciencedirect.com/search?qs=${e}`]]).map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join(" ");
 }
 function auditItem(c){
   const lib=libMatch(c);
@@ -1443,7 +1443,7 @@ const BOT_FACE="data:image/webp;base64,UklGRm4dAABXRUJQVlA4WAoAAAAQAAAAnwAAnwAAQ
 const BOT_CHIPS=[["ค้นงานวิจัย","ช่วยค้นงานวิจัยล่าสุดเกี่ยวกับ "],["ตอบคำถาม","อธิบายความแตกต่างระหว่าง "],["เลือกสถิติ","งานวิจัยของฉันควรใช้สถิติอะไรวิเคราะห์ "],["วิธีใช้โปรแกรม","วิธีใช้โปรแกรมนี้ ถ้าต้องการ "],["หาคำค้น","ช่วยตั้งคำค้นภาษาอังกฤษ (MeSH/CINAHL) สำหรับหัวข้อ "]];
 const BOT_HELP=()=>`คุณชื่อ "น้องค้นคว้า" ผู้ช่วยแชตบอตในโปรแกรมผู้ช่วยเขียนงานวิจัยทางการพยาบาล พูดสุภาพ เป็นกันเอง ลงท้ายด้วย "ค่ะ" ตอบกระชับ ตรงคำถาม ใช้หัวข้อย่อยเมื่อช่วยให้อ่านง่าย
 ถ้าผู้ใช้ถามวิธีใช้โปรแกรม ให้แนะนำเมนูที่มี: ${NAV.filter(x=>x[0]!=="grp").map(x=>x[1]).join(", ")} และบอกว่าอยู่ในแถบเมนูด้านซ้าย
-แหล่งสืบค้นที่ผู้ใช้เปิดค้นต่อเองได้จากเมนูแชตผู้ช่วยค้นคว้าหรือคลังอ้างอิง: CINAHL และ EBSCO ของมหาวิทยาลัย, PubMed, ScienceDirect, Scopus, ThaiJO, Google Scholar, Consensus แล้วส่งออกเป็น RIS มานำเข้าที่คลังอ้างอิง
+แหล่งสืบค้นที่ผู้ใช้เปิดค้นต่อเองได้จากเมนูแชตผู้ช่วยค้นคว้าหรือคลังอ้างอิง: CINAHL และ EBSCO ของมหาวิทยาลัย, ProQuest, ThaiLIS (TDC วิทยานิพนธ์ไทย), PubMed, ScienceDirect, Scopus, ThaiJO, Google Scholar, Consensus แล้วส่งออกเป็น RIS มานำเข้าที่คลังอ้างอิง
 ถ้าผู้ใช้ขอให้ค้นงานวิจัยแต่ไม่มีแหล่งข้อมูลที่ค้นพบ ให้แนะนำคำค้นภาษาอังกฤษและภาษาไทยที่ใช้ได้ทันที และแหล่งที่ควรค้น โดยไม่แต่งชื่อบทความหรือผู้แต่งขึ้นเอง
 
 `;
@@ -1464,6 +1464,14 @@ function botDraw(){
 
 /* ---------- สั่งด้วยเสียง (Web Speech API) และอ่านคำตอบออกเสียง ---------- */
 const VOICE_LS="nrw:botvoice";
+
+/* ProQuest และ ThaiLIS ไม่รับคำค้นผ่านลิงก์โดยตรง: คัดลอกคำค้นให้อัตโนมัติเมื่อกดลิงก์ แล้วผู้ใช้วางในช่องค้นหา */
+document.addEventListener("click",e=>{
+  const a=e.target.closest&&e.target.closest('a[href*="#nrwq="]'); if(!a) return;
+  const q=decodeURIComponent((a.getAttribute("href").split("#nrwq=")[1]||"").replace(/\+/g," ")).trim(); if(!q) return;
+  const site=/thailis/.test(a.href)?"ThaiLIS":"ProQuest";
+  try{ navigator.clipboard.writeText(q).then(()=>toast(`คัดลอกคำค้นแล้ว วาง (Cmd/Ctrl+V) ในช่องค้นหาของ ${site} ได้เลย`),()=>toast(`คำค้น: ${q}`)); }catch{ toast(`คำค้น: ${q}`); }
+},true);
 function voiceCfg(){ try{ return {tts:false,auto:true,...JSON.parse(localStorage.getItem(VOICE_LS)||"{}")}; }catch{ return {tts:false,auto:true}; } }
 function voiceSet(o){ try{ localStorage.setItem(VOICE_LS,JSON.stringify({...voiceCfg(),...o})); }catch{} }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -2555,7 +2563,7 @@ function libSearch(q,max=6){ const ts=terms(q); if(!ts.length||!S.refs.length) r
 /* EBSCO ของมหาวิทยาลัยราชภัฏศรีสะเกษ (ต้องล็อกอินด้วยบัญชีมหาวิทยาลัย) db=ccm คือ CINAHL Complete */
 const EBSCO_BASE="https://research.ebsco.com/c/ydfnbg/search/results";
 const ebscoUrl=(q,db="ccm")=>`${EBSCO_BASE}?q=${encodeURIComponent(q||"")}&autocorrect=y${db?`&db=${db}`:""}&expanders=concept&limiters=None&searchMode=all&searchSegment=all-results`;
-const extLinks=q=>{ const e=encodeURIComponent(q||""); return [["CINAHL (EBSCO มหาวิทยาลัย)",ebscoUrl(q,"ccm")],["EBSCO ทุกฐาน (มหาวิทยาลัย)",ebscoUrl(q,"")],["PubMed",`https://pubmed.ncbi.nlm.nih.gov/?term=${e}`],["ScienceDirect",`https://www.sciencedirect.com/search?qs=${e}`],["Scopus",`https://www.scopus.com/results/results.uri?src=s&sot=b&sdt=b&s=${encodeURIComponent(q?`TITLE-ABS-KEY(${q})`:"")}`],["ThaiJO",`https://www.tci-thaijo.org/th/articles?q=${e}`],["Google Scholar",`https://scholar.google.com/scholar?q=${e}`],["Consensus",`https://consensus.app/results/?q=${e}`]]; };
+const extLinks=q=>{ const e=encodeURIComponent(q||""); return [["CINAHL (EBSCO มหาวิทยาลัย)",ebscoUrl(q,"ccm")],["EBSCO ทุกฐาน (มหาวิทยาลัย)",ebscoUrl(q,"")],["ProQuest",`https://www.proquest.com/#nrwq=${e}`],["ThaiLIS (TDC)",`https://tdc.thailis.or.th/tdc/basic.php#nrwq=${e}`],["PubMed",`https://pubmed.ncbi.nlm.nih.gov/?term=${e}`],["ScienceDirect",`https://www.sciencedirect.com/search?qs=${e}`],["Scopus",`https://www.scopus.com/results/results.uri?src=s&sot=b&sdt=b&s=${encodeURIComponent(q?`TITLE-ABS-KEY(${q})`:"")}`],["ThaiJO",`https://www.tci-thaijo.org/th/articles?q=${e}`],["Google Scholar",`https://scholar.google.com/scholar?q=${e}`],["Consensus",`https://consensus.app/results/?q=${e}`]]; };
 /* ============ แชตผู้ช่วยค้นคว้า ============ */
 const CHIPS=[
  ["ค้นงานวิจัย","ค้นงานวิจัยล่าสุดเกี่ยวกับ "],
@@ -2698,7 +2706,7 @@ function vRefs(){
     <label class="f">หน้า<input type="text" id="mPg" placeholder="45-52"></label><label class="f">DOI หรือ URL<input type="text" id="mLk"></label>
    </div><div class="row" style="margin-top:10px"><label class="small"><input type="checkbox" id="mVer"> ตรวจกับต้นฉบับแล้ว</label><button class="btn" id="mAdd">เพิ่มลงคลัง</button></div></details>
    <details open><summary>นำเข้าไฟล์อ้างอิงจาก ThaiJO, Google Scholar, Consensus หรือโปรแกรมจัดการอ้างอิง</summary>
-    <p class="small">ส่งออกรายการจากเว็บไซต์เป็นไฟล์ <b>RIS</b>, <b>BibTeX</b> หรือ <b>EndNote</b> แล้วนำเข้าที่นี่ หรือคัดลอกข้อความมาวาง | <b>EBSCO / CINAHL ของมหาวิทยาลัย</b>: ล็อกอินบัญชีมหาวิทยาลัย ค้นด้วยปุ่มด้านล่าง เลือกบทความ แล้วกด Export (ส่งออก) เป็น RIS นำไฟล์มาเข้าที่นี่ | ThaiJO: แชตค้นจาก ThaiJO ได้โดยตรงแล้ว หรือเปิดบทความ (ลิงก์ไปยังเว็บวารสาร) แล้วใช้ส่วน “How to Cite” ดาวน์โหลด RIS หรือ BibTeX | Google Scholar: กด “อ้างอิง” ใต้บทความ แล้วเลือก BibTeX, EndNote หรือ RefMan | Consensus: ใช้ปุ่ม Export ในหน้าผลลัพธ์ (ถ้าแผนที่ใช้มี)</p>
+    <p class="small">ส่งออกรายการจากเว็บไซต์เป็นไฟล์ <b>RIS</b>, <b>BibTeX</b> หรือ <b>EndNote</b> แล้วนำเข้าที่นี่ หรือคัดลอกข้อความมาวาง | <b>EBSCO / CINAHL ของมหาวิทยาลัย</b>: ล็อกอินบัญชีมหาวิทยาลัย ค้นด้วยปุ่มด้านล่าง เลือกบทความ แล้วกด Export (ส่งออก) เป็น RIS นำไฟล์มาเข้าที่นี่ | <b>ProQuest</b>: กดปุ่มแล้วโปรแกรมจะคัดลอกคำค้นให้ วางในช่องค้นหา เลือกบทความแล้ว Cite/Export เป็น RIS | <b>ThaiLIS (TDC)</b>: กดปุ่มแล้ววางคำค้นในช่องค้นหาวิทยานิพนธ์ไทย คัดลอกรายการอ้างอิงมาวางในช่องข้อความ | ThaiJO: แชตค้นจาก ThaiJO ได้โดยตรงแล้ว หรือเปิดบทความ (ลิงก์ไปยังเว็บวารสาร) แล้วใช้ส่วน “How to Cite” ดาวน์โหลด RIS หรือ BibTeX | Google Scholar: กด “อ้างอิง” ใต้บทความ แล้วเลือก BibTeX, EndNote หรือ RefMan | Consensus: ใช้ปุ่ม Export ในหน้าผลลัพธ์ (ถ้าแผนที่ใช้มี)</p>
     <div class="row">${extLinks(S.p.topic||S.p.title_th||"").map(([n,u])=>`<a class="btn" target="_blank" rel="noopener" href="${u}">ค้นใน ${n} ↗</a>`).join("")}</div>
     <textarea id="iTxt" rows="4" placeholder="วางข้อความ RIS / BibTeX / EndNote ที่นี่" style="margin-top:8px"></textarea>
     <div class="row" style="margin-top:8px"><button class="btn" id="iFile">เลือกไฟล์ .ris .bib .enw .nbib</button><input type="file" id="iIn" accept=".ris,.bib,.bibtex,.enw,.txt,.nbib" multiple hidden><label class="small"><input type="checkbox" id="iVer"> ตรวจกับต้นฉบับแล้ว</label><button class="btn pri" id="iGo">นำเข้าข้อความที่วาง</button></div>
