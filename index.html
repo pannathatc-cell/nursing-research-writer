@@ -144,6 +144,31 @@ tr:last-child td{border-bottom:0}
 .aiout table{margin:8px 0;font-family:var(--ui)}
 .aiact{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
 
+
+/* ===== ห้องเรียบเรียงภาษา ===== */
+.rw-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);margin:0 0 12px}
+.rw-tabs button{border:0;background:none;padding:9px 14px;font:inherit;font-size:15px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.rw-tabs button[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.rw-bar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 10px;font-size:14px}
+.rw-modes{display:flex;flex-wrap:wrap;gap:4px}
+.rw-modes button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font:inherit;font-size:13.5px;cursor:pointer;color:var(--ink)}
+.rw-modes button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.rw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:900px){.rw-grid{grid-template-columns:1fr}}
+.rw-pane{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:360px}
+.rw-pane textarea{flex:1;border:0;resize:vertical;min-height:300px;padding:14px;font-family:var(--doc);font-size:16px;line-height:1.75;background:transparent;color:var(--ink);border-radius:12px 12px 0 0}
+.rw-out{flex:1;padding:14px;font-family:var(--doc);font-size:16px;line-height:1.75;overflow:auto;min-height:300px;white-space:pre-wrap}
+.rw-out ins{background:rgba(46,125,79,.16);text-decoration:none;border-radius:3px}
+.rw-out .ph{color:var(--muted);font-family:var(--ui);font-size:14px}
+.rw-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.rw-meter{display:flex;gap:14px;flex-wrap:wrap}
+.rw-meter b{color:var(--ink)}
+.rw-fix{margin:10px 0 0;padding:0;list-style:none}
+.rw-fix li{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin:0 0 6px;background:var(--surface);font-size:14px}
+.rw-fix del{color:#B3261E}.rw-fix ins{color:#2E7D4F;text-decoration:none;font-weight:600}
+.rw-sim mark{background:rgba(217,63,63,.18);border-radius:3px}
+.rw-hist{margin:14px 0 0}
+.rw-hist li{font-size:13.5px;margin:0 0 6px}
 /* ===== แชตบอตลอย "น้องค้นคว้า" ===== */
 .bot-fab{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:60;display:flex;align-items:flex-end;gap:8px;border:0;background:none;padding:0;cursor:pointer}
 .bot-fab img{width:68px;height:68px;border-radius:50%;box-shadow:0 6px 18px rgba(22,33,44,.25);border:3px solid var(--surface);transition:transform .15s}
@@ -643,7 +668,7 @@ function renderProjSel(){
 /* ============ นำทาง ============ */
 const NAV = [
  ["grp","ติดตามงาน"],["dash","แดชบอร์ด"],["setup","ข้อมูลตั้งต้น"],["ai","ตั้งค่าผู้ช่วย AI"],
- ["grp","เขียนงาน"],["topic","ตั้งชื่อเรื่อง"],["write","เขียนรายบท"],["ethics","จริยธรรมการวิจัย"],["stats","สถิติการวิจัย"],["power","คำนวณขนาดตัวอย่าง (G*Power)"],["chat","แชตผู้ช่วยค้นคว้า"],["lit","อ่านและประเมินงานวิจัย"],["refs","คลังอ้างอิง"],["refaudit","ตรวจสอบเอกสารอ้างอิง (APA 7)"],["data","ข้อมูลและการวิเคราะห์"],["align","ตรวจความสอดคล้อง"],["files","ไฟล์และต้นฉบับ"],
+ ["grp","เขียนงาน"],["topic","ตั้งชื่อเรื่อง"],["write","เขียนรายบท"],["rewrite","เรียบเรียงและพาราเฟรส"],["ethics","จริยธรรมการวิจัย"],["stats","สถิติการวิจัย"],["power","คำนวณขนาดตัวอย่าง (G*Power)"],["chat","แชตผู้ช่วยค้นคว้า"],["lit","อ่านและประเมินงานวิจัย"],["refs","คลังอ้างอิง"],["refaudit","ตรวจสอบเอกสารอ้างอิง (APA 7)"],["data","ข้อมูลและการวิเคราะห์"],["align","ตรวจความสอดคล้อง"],["files","ไฟล์และต้นฉบับ"],
  ["grp","ปิดโครงการ"],["abstract","บทคัดย่อ"],["review","โหมดผู้ทรงคุณวุฒิ"],["export","ส่งออก Word"],["gdrive","บันทึกลง Google Drive"]
 ];
 function renderNav(){
@@ -651,9 +676,9 @@ function renderNav(){
 }
 function go(v){
   if(S.ctl){ try{S.ctl.abort();}catch{} S.ctl=null; }
-  if(!S.p && v!=="welcome" && v!=="ai" && v!=="gdrive") v="welcome";
+  if(!S.p && v!=="welcome" && v!=="ai" && v!=="gdrive" && v!=="rewrite") v="welcome";
   S.view=v; renderNav(); window.scrollTo(0,0);
-  const r = {power:vPower,chat:vChat,refs:vRefs,refaudit:vRefAudit,lit:vLit,data:vData,ethics:vEthics,stats:vStats,ai:vAI,welcome:vWelcome,dash:vDash,setup:vSetup,topic:vTopic,write:vWrite,align:vAlign,files:vFiles,abstract:vAbstract,review:vReview,export:vExport,gdrive:vGDrive}[v];
+  const r = {power:vPower,chat:vChat,refs:vRefs,refaudit:vRefAudit,rewrite:vRewrite,lit:vLit,data:vData,ethics:vEthics,stats:vStats,ai:vAI,welcome:vWelcome,dash:vDash,setup:vSetup,topic:vTopic,write:vWrite,align:vAlign,files:vFiles,abstract:vAbstract,review:vReview,export:vExport,gdrive:vGDrive}[v];
   r();
 }
 document.addEventListener("click", e=>{ const b=e.target.closest("[data-go]"); if(b){ go(b.dataset.go); } });
@@ -1682,6 +1707,146 @@ function a11yFields(){
   });
 }
 function a11yWatch(){ a11yFields(); new MutationObserver(()=>{ if(a11yQueued) return; a11yQueued=true; requestAnimationFrame(a11yFields); }).observe(document.body,{childList:true,subtree:true}); }
+
+/* ============ ห้องเรียบเรียงภาษา: พาราเฟรส ตรวจไวยากรณ์ แปล สรุป และตรวจความซ้ำ ============ */
+const RW_LS="nrw:rewrite";
+function rwState(){ try{ return {tab:"para",mode:"academic",syn:2,lang:"same",keep:"",cite:true,tr:"th2en",sum:"para",hist:[],...JSON.parse(localStorage.getItem(RW_LS)||"{}")}; }catch{ return {tab:"para",mode:"academic",syn:2,lang:"same",keep:"",cite:true,tr:"th2en",sum:"para",hist:[]}; } }
+function rwSave(o){ try{ localStorage.setItem(RW_LS,JSON.stringify({...rwState(),...o})); }catch{} }
+const RW_MODES=[["standard","มาตรฐาน","เปลี่ยนถ้อยคำและโครงสร้างประโยคพอประมาณ คงความหมายเดิม"],["fluency","ลื่นไหล","แก้ให้อ่านลื่น เป็นธรรมชาติ เปลี่ยนคำน้อยที่สุด"],["academic","วิชาการ","ภาษาวิชาการทางการพยาบาล ศัพท์เทคนิคถูกต้อง เหมาะกับวิทยานิพนธ์และบทความ"],["formal","ราชการ/ทางการ","ภาษาทางการ สุภาพ เหมาะกับเอกสารราชการ"],["simple","เข้าใจง่าย","ภาษาง่าย ประโยคสั้น เหมาะกับผู้อ่านทั่วไปหรือสื่อสุขศึกษา"],["shorten","กระชับ","ตัดคำฟุ่มเฟือย ลดความยาวลงประมาณหนึ่งในสาม"],["expand","ขยายความ","อธิบายเพิ่มให้ชัดขึ้น โดยไม่เพิ่มข้อเท็จจริงใหม่"],["custom","กำหนดเอง","พิมพ์คำสั่งเอง"]];
+const RW_TABS=[["para","เรียบเรียง (Paraphrase)"],["grammar","ตรวจไวยากรณ์"],["translate","แปลภาษา"],["summary","สรุปความ"],["sim","ตรวจความซ้ำ"]];
+const segWords=t=>{ try{ const sg=new Intl.Segmenter(/[฀-๿]/.test(t)?"th":"en",{granularity:"word"}); return [...sg.segment(t)].map(x=>x.segment); }catch{ return t.split(/(\s+)/); } };
+const isWord=w=>/[\p{L}\p{N}]/u.test(w);
+const wcount=t=>segWords(String(t||"")).filter(isWord).length;
+function ngramSim(a,b,n=4){ const A=segWords(a).filter(isWord).map(w=>w.toLowerCase()), B=segWords(b).filter(isWord).map(w=>w.toLowerCase()); if(B.length<n||A.length<n) return 0;
+  const set=new Set(); for(let i=0;i+n<=A.length;i++) set.add(A.slice(i,i+n).join(" ")); let hit=0,tot=0; for(let i=0;i+n<=B.length;i++){ tot++; if(set.has(B.slice(i,i+n).join(" "))) hit++; } return tot?Math.round(hit*100/tot):0; }
+function diffHTML(a,b){
+  const A=segWords(a), B=segWords(b); if(A.length*B.length>2.5e6) return esc(b);
+  const n=A.length,m=B.length, dp=Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) dp[i][j]=A[i]===B[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0,out="",buf="";
+  const flush=()=>{ if(buf){ out+=/\S/.test(buf)?`<ins>${esc(buf)}</ins>`:esc(buf); buf=""; } };
+  while(j<m){ if(i<n&&A[i]===B[j]){ flush(); out+=esc(B[j]); i++; j++; } else if(i<n&&dp[i+1][j]>=dp[i][j+1]) i++; else { buf+=B[j]; j++; } }
+  flush(); return out;
+}
+function simHTML(src,txt,n=5){ const S2=segWords(src).filter(isWord).map(w=>w.toLowerCase()); const set=new Set(); for(let i=0;i+n<=S2.length;i++) set.add(S2.slice(i,i+n).join(" "));
+  const T=segWords(txt); const idx=[]; T.forEach((w,k)=>{ if(isWord(w)) idx.push(k); }); const mark=new Array(T.length).fill(false);
+  const L=idx.map(k=>T[k].toLowerCase()); for(let i=0;i+n<=L.length;i++) if(set.has(L.slice(i,i+n).join(" "))) for(let q=i;q<i+n;q++){ const a=idx[q], b=idx[q+1]; mark[a]=true; if(q<i+n-1) for(let z=a+1;z<b;z++) mark[z]=true; }
+  let out="",on=false; T.forEach((w,k)=>{ if(mark[k]&&!on){ out+="<mark>"; on=true; } if(!mark[k]&&on){ out+="</mark>"; on=false; } out+=esc(w); }); if(on) out+="</mark>"; return out; }
+function rwPrompt(st,text){
+  const keep=st.keep.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
+  const langOut={same:"ใช้ภาษาเดียวกับต้นฉบับ",th:"เขียนผลลัพธ์เป็นภาษาไทย",en:"Write the output in academic English"}[st.lang];
+  const syn=["เปลี่ยนคำศัพท์น้อย","เปลี่ยนคำศัพท์ปานกลาง","เปลี่ยนคำศัพท์และโครงสร้างประโยคมาก"][st.syn-1];
+  const mode=st.mode==="custom"?(st.custom||"เรียบเรียงใหม่"):RW_MODES.find(m=>m[0]===st.mode)[2];
+  return `คุณเป็นบรรณาธิการภาษาวิชาการทางการพยาบาล เรียบเรียงข้อความด้านล่างใหม่ด้วยถ้อยคำของคุณเอง
+รูปแบบ: ${mode}
+ระดับการเปลี่ยนคำ: ${syn}
+ภาษา: ${langOut}
+กติกา:
+- คงความหมาย ข้อเท็จจริง ตัวเลข ค่าสถิติ และหน่วยทุกตัวตามต้นฉบับ ห้ามเพิ่มข้อมูลหรือแหล่งอ้างอิงใหม่
+${st.cite?"- คงการอ้างอิงในเนื้อหาทุกตำแหน่งไว้ตามเดิม เช่น (Smith et al., 2020) หรือ [1] เพราะการเรียบเรียงใหม่ยังต้องอ้างอิงแหล่งเดิม\n":""}${keep.length?`- ห้ามเปลี่ยนคำหรือวลีเหล่านี้: ${keep.join(", ")}\n`:""}- คงการแบ่งย่อหน้าตามต้นฉบับ
+- ตอบเฉพาะข้อความที่เรียบเรียงแล้ว ไม่มีคำอธิบาย ไม่มีหัวข้อ ไม่มีเครื่องหมาย markdown
+
+ข้อความต้นฉบับ:
+"""
+${text}
+"""`;
+}
+let rwCtl=null;
+async function rwRun(kind){
+  const st=rwState(), inp=$("#rwIn"), out=$("#rwOut"), msg=$("#rwMsg"), go=$("#rwGo"), stop=$("#rwStop"); const text=inp.value.trim();
+  if(!text){ msg.textContent="วางหรือพิมพ์ข้อความทางซ้ายก่อน"; return; }
+  if(!S.sample){ msg.innerHTML='ยังไม่ได้เชื่อม AI <button class="btn ghost" data-go="ai" type="button">ตั้งค่า</button>'; return; }
+  if(text.length>12000){ msg.textContent="ข้อความยาวเกินไป แบ่งทำทีละไม่เกินประมาณ 2,000 คำ"; return; }
+  rwCtl=new AbortController(); go.disabled=true; stop.hidden=false; msg.textContent="กำลังทำงาน…"; out.innerHTML='<span class="ph">กำลังเขียน…</span>'; $("#rwFix")&&($("#rwFix").innerHTML="");
+  let prompt;
+  if(kind==="para") prompt=rwPrompt(st,text);
+  else if(kind==="translate") prompt=`แปลข้อความต่อไปนี้${st.tr==="th2en"?"จากภาษาไทยเป็นภาษาอังกฤษเชิงวิชาการ (academic English for nursing research)":"จากภาษาอังกฤษเป็นภาษาไทยเชิงวิชาการทางการพยาบาล ใช้ศัพท์บัญญัติที่นิยม และวงเล็บศัพท์อังกฤษสำคัญในครั้งแรก"} คงตัวเลข ค่าสถิติ ชื่อเฉพาะ และการอ้างอิงในเนื้อหาไว้ตามเดิม คงการแบ่งย่อหน้า ตอบเฉพาะคำแปล ไม่มี markdown\n\n"""\n${text}\n"""`;
+  else if(kind==="summary") prompt=`สรุปข้อความวิชาการต่อไปนี้${{para:"เป็นความเรียง 1 ย่อหน้า",bullets:"เป็นข้อ ๆ 3-6 ข้อ ขึ้นต้นแต่ละข้อด้วย • ",abstract:"เป็นบทคัดย่อ (ความเป็นมา วัตถุประสงค์ วิธีการ ผล สรุป) ไม่เกิน 250 คำ เขียนเป็นความเรียงต่อเนื่อง"}[st.sum]} ใช้ภาษาเดียวกับต้นฉบับ คงตัวเลขสำคัญ ห้ามเพิ่มข้อมูลที่ไม่มีในต้นฉบับ ไม่มี markdown\n\n"""\n${text}\n"""`;
+  try{
+    if(kind==="grammar"){
+      const j=await S.sample.json(`ตรวจไวยากรณ์ การสะกด เครื่องหมายวรรคตอน การใช้คำ และการเว้นวรรค (ภาษาไทยตามหลักราชบัณฑิตยสภา ภาษาอังกฤษตามหลักวิชาการ) ของข้อความด้านล่าง แก้เฉพาะจุดที่ผิดหรือไม่เหมาะ ห้ามเปลี่ยนความหมายหรือสำนวนที่ถูกอยู่แล้ว
+ตอบเป็น JSON: {"corrected":"ข้อความทั้งหมดหลังแก้","fixes":[{"from":"คำ/วลีเดิม","to":"ที่แก้","why":"เหตุผลสั้น ๆ"}]}
+ถ้าไม่มีจุดต้องแก้ ให้ fixes เป็น [] และ corrected เท่ากับต้นฉบับ
+
+"""
+${text}
+"""`,{signal:rwCtl.signal,modelTier:"default"});
+      const fixed=String(j.corrected||text); out.innerHTML=diffHTML(text,fixed); out.dataset.text=fixed;
+      $("#rwFix").innerHTML=(j.fixes||[]).length?(j.fixes||[]).map(f=>`<li><del>${esc(f.from||"")}</del> → <ins>${esc(f.to||"")}</ins>${f.why?` <span class="muted">· ${esc(f.why)}</span>`:""}</li>`).join(""):'<li>ไม่พบจุดที่ต้องแก้ค่ะ</li>';
+    } else {
+      const r=await S.sample(prompt,{signal:rwCtl.signal,modelTier:"default",onText:({text:t})=>{ out.textContent=t; }});
+      const res=String(r.text||"").replace(/^```\w*\n?|```$/g,"").trim(); out.dataset.text=res;
+      out.innerHTML=kind==="para"&&($("#rwDiffChk")?$("#rwDiffChk").checked:true)?diffHTML(text,res):esc(res);
+    }
+    const res=out.dataset.text; const sim=kind==="para"||kind==="grammar"?ngramSim(text,res):null;
+    $("#rwStat").innerHTML=`<span>ผลลัพธ์ <b>${wcount(res)}</b> คำ</span>${sim!=null?`<span>วลีซ้ำกับต้นฉบับ (4 คำติดกัน) <b>${sim}%</b></span>`:""}`;
+    msg.textContent=kind==="para"?(sim>40?"ยังซ้ำกับต้นฉบับค่อนข้างมาก ลองเพิ่มระดับการเปลี่ยนคำ หรือเลือกรูปแบบอื่น":"เสร็จแล้ว ตรวจความถูกต้องของเนื้อหาก่อนใช้ และคงการอ้างอิงแหล่งเดิมไว้"):"เสร็จแล้ว";
+    const h=[{t:Date.now(),kind,src:text.slice(0,4000),out:res.slice(0,4000)},...rwState().hist].slice(0,12); rwSave({hist:h}); rwHist();
+  }catch(e){ out.innerHTML=e&&e.text?esc(e.text):'<span class="ph">ไม่ได้ผลลัพธ์</span>'; msg.textContent=e&&e.code==="cancelled"?"หยุดแล้ว":(ERR[e&&e.code]||ERR.upstream_error); }
+  go.disabled=false; stop.hidden=true; rwCtl=null;
+}
+function rwHist(){ const box=$("#rwHist"); if(!box) return; const h=rwState().hist; const K={para:"เรียบเรียง",grammar:"ไวยากรณ์",translate:"แปล",summary:"สรุป"};
+  box.innerHTML=h.length?`<details><summary class="small">ประวัติล่าสุด (${h.length})</summary><ol>${h.map((x,i)=>`<li><a href="#" data-h="${i}">${esc(K[x.kind]||x.kind)} · ${new Date(x.t).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})} · ${esc(x.src.slice(0,60))}…</a></li>`).join("")}</ol><button class="btn ghost" id="rwHClr" type="button">ล้างประวัติ</button></details>`:"";
+  $$("[data-h]",box).forEach(a=>a.onclick=e=>{ e.preventDefault(); const x=h[+a.dataset.h]; $("#rwIn").value=x.src; $("#rwOut").dataset.text=x.out; $("#rwOut").textContent=x.out; rwCount(); });
+  if($("#rwHClr")) $("#rwHClr").onclick=()=>{ rwSave({hist:[]}); rwHist(); };
+}
+function rwCount(){ const t=$("#rwIn").value; $("#rwWc").textContent=wcount(t)+" คำ"; }
+function vRewrite(){
+  const st=rwState(), M=$("#main"), tab=st.tab;
+  const keys=S.p?bodyKeys():[];
+  const bar={
+    para:`<div class="rw-modes" role="group" aria-label="รูปแบบการเรียบเรียง">${RW_MODES.map(([k,l,d])=>`<button type="button" data-mode="${k}" aria-pressed="${st.mode===k}" title="${esc(d)}">${l}</button>`).join("")}</div>
+      <label>ระดับเปลี่ยนคำ <input type="range" id="rwSyn" min="1" max="3" step="1" value="${st.syn}" style="vertical-align:middle;width:90px"> <span id="rwSynL">${["น้อย","กลาง","มาก"][st.syn-1]}</span></label>
+      <label>ภาษาผลลัพธ์ <select id="rwLang"><option value="same" ${st.lang==="same"?"selected":""}>เหมือนต้นฉบับ</option><option value="th" ${st.lang==="th"?"selected":""}>ไทย</option><option value="en" ${st.lang==="en"?"selected":""}>อังกฤษ</option></select></label>`,
+    grammar:`<span class="muted">ตรวจการสะกด ไวยากรณ์ วรรคตอน และการเว้นวรรค ทั้งภาษาไทยและอังกฤษ แสดงจุดที่แก้พร้อมเหตุผล</span>`,
+    translate:`<label>ทิศทาง <select id="rwTr"><option value="th2en" ${st.tr==="th2en"?"selected":""}>ไทย → อังกฤษ (วิชาการ)</option><option value="en2th" ${st.tr==="en2th"?"selected":""}>อังกฤษ → ไทย (วิชาการ)</option></select></label>`,
+    summary:`<label>รูปแบบสรุป <select id="rwSum"><option value="para" ${st.sum==="para"?"selected":""}>ความเรียง 1 ย่อหน้า</option><option value="bullets" ${st.sum==="bullets"?"selected":""}>เป็นข้อ ๆ</option><option value="abstract" ${st.sum==="abstract"?"selected":""}>บทคัดย่อ</option></select></label>`,
+    sim:`<span class="muted">วางแหล่งต้นฉบับทางซ้าย และข้อความของคุณทางขวา ระบบจะไฮไลต์วลีที่ซ้ำกันตั้งแต่ 5 คำติดกัน (คำนวณในเครื่อง ไม่ส่งข้อมูลออก)</span>`}[tab];
+  const goLabel={para:"เรียบเรียงใหม่",grammar:"ตรวจไวยากรณ์",translate:"แปลภาษา",summary:"สรุปความ",sim:"ตรวจความซ้ำ"}[tab];
+  M.innerHTML=`<h1>เรียบเรียงและพาราเฟรส</h1>
+  <p class="lead">ช่วยเรียบเรียงข้อความวิชาการด้วยถ้อยคำของตนเอง ตรวจไวยากรณ์ แปลไทย-อังกฤษ สรุปความ และตรวจความซ้ำกับต้นฉบับ เพื่อลดการคัดลอกข้อความของผู้อื่นโดยตรง</p>
+  <div class="rw-tabs" role="tablist">${RW_TABS.map(([k,l])=>`<button type="button" role="tab" data-tab="${k}" aria-selected="${k===tab}">${l}</button>`).join("")}</div>
+  <div class="rw-bar">${bar}</div>
+  ${tab==="para"?`<div class="rw-bar">${st.mode==="custom"?`<input type="text" id="rwCustom" value="${esc(st.custom||"")}" placeholder="เช่น เขียนให้เป็นภาษาวิชาการ เน้นบทบาทพยาบาลชุมชน" style="flex:1;min-width:240px">`:""}
+     <input type="text" id="rwKeep" value="${esc(st.keep)}" placeholder="คำที่ห้ามเปลี่ยน คั่นด้วย , เช่น ความรอบรู้ด้านสุขภาพ, 3E2S" style="flex:1;min-width:240px">
+     <label><input type="checkbox" id="rwCite" ${st.cite?"checked":""}> คงการอ้างอิงในเนื้อหา</label><label><input type="checkbox" id="rwDiffChk" ${st.diff!==false?"checked":""}> ไฮไลต์คำที่เปลี่ยน</label></div>`:""}
+  <div class="rw-grid">
+    <div class="rw-pane"><textarea id="rwIn" placeholder="${tab==="sim"?"วางข้อความต้นฉบับ (แหล่งที่อ้างอิง)":"วางหรือพิมพ์ข้อความที่ต้องการ"}"></textarea>
+      <div class="rw-foot"><span id="rwWc">0 คำ</span><span><button class="btn ghost" id="rwClr" type="button">ล้าง</button> <button class="btn pri" id="rwGo" type="button">${goLabel}</button> <button class="btn" id="rwStop" type="button" hidden>หยุด</button></span></div></div>
+    <div class="rw-pane">${tab==="sim"?`<textarea id="rwMine" placeholder="วางข้อความที่คุณเขียน"></textarea><div class="rw-out rw-sim" id="rwSimOut" hidden></div>`:`<div class="rw-out" id="rwOut" aria-live="polite"><span class="ph">ผลลัพธ์จะแสดงที่นี่</span></div>`}
+      <div class="rw-foot"><span class="rw-meter" id="rwStat"></span><span>${tab==="sim"?"":`<button class="btn ghost" id="rwCopy" type="button">คัดลอก</button> <button class="btn ghost" id="rwAgain" type="button">ใช้ผลลัพธ์เป็นต้นฉบับ</button>`}</span></div></div>
+  </div>
+  <p class="small" id="rwMsg" style="margin:8px 0"></p>
+  ${tab==="grammar"?`<ul class="rw-fix" id="rwFix"></ul>`:""}
+  ${tab!=="sim"&&S.p?`<div class="row" style="margin:6px 0"><label>แทรกผลลัพธ์ลงหัวข้อ <select id="rwKey">${keys.map(k=>`<option value="${k}" ${S.cur&&S.cur.key===k?"selected":""}>${esc(lbl(k))}</option>`).join("")}</select></label><button class="btn" id="rwIns" type="button">แทรกต่อท้ายหัวข้อ</button></div>`:""}
+  <div class="note" style="margin-top:12px">การเรียบเรียงใหม่ไม่ได้ทำให้เนื้อหากลายเป็นของเราเอง ข้อความที่มาจากงานของผู้อื่นยังต้องอ้างอิงแหล่งเดิมทุกครั้ง ใช้เครื่องมือนี้เพื่อสื่อความด้วยถ้อยคำของตนเองและเขียนให้ชัดขึ้น แล้วตรวจความถูกต้องของเนื้อหาก่อนใช้งาน</div>
+  <div class="rw-hist" id="rwHist"></div>`;
+  $$("[data-tab]",M).forEach(b=>b.onclick=()=>{ rwSave({tab:b.dataset.tab}); vRewrite(); });
+  $$("[data-mode]",M).forEach(b=>b.onclick=()=>{ rwSave({mode:b.dataset.mode}); const v=$("#rwIn").value; vRewrite(); $("#rwIn").value=v; rwCount(); });
+  if($("#rwSyn")) $("#rwSyn").oninput=e=>{ rwSave({syn:+e.target.value}); $("#rwSynL").textContent=["น้อย","กลาง","มาก"][e.target.value-1]; };
+  if($("#rwLang")) $("#rwLang").onchange=e=>rwSave({lang:e.target.value});
+  if($("#rwKeep")) $("#rwKeep").onchange=e=>rwSave({keep:e.target.value});
+  if($("#rwCustom")) $("#rwCustom").onchange=e=>rwSave({custom:e.target.value});
+  if($("#rwCite")) $("#rwCite").onchange=e=>rwSave({cite:e.target.checked});
+  if($("#rwDiffChk")) $("#rwDiffChk").onchange=e=>rwSave({diff:e.target.checked});
+  if($("#rwTr")) $("#rwTr").onchange=e=>rwSave({tr:e.target.value});
+  if($("#rwSum")) $("#rwSum").onchange=e=>rwSave({sum:e.target.value});
+  $("#rwIn").oninput=rwCount; $("#rwClr").onclick=()=>{ $("#rwIn").value=""; rwCount(); if($("#rwOut")){ $("#rwOut").innerHTML='<span class="ph">ผลลัพธ์จะแสดงที่นี่</span>'; delete $("#rwOut").dataset.text; } $("#rwStat").innerHTML=""; };
+  $("#rwStop").onclick=()=>{ if(rwCtl) rwCtl.abort(); };
+  $("#rwGo").onclick=()=>{
+    if(tab!=="sim") return rwRun(tab);
+    const a=$("#rwIn").value.trim(), b=$("#rwMine").value.trim(); if(!a||!b){ $("#rwMsg").textContent="วางข้อความทั้งสองฝั่งก่อน"; return; }
+    const pct=ngramSim(a,b,5); const box=$("#rwSimOut"); box.innerHTML=simHTML(a,b,5); box.hidden=false; $("#rwMine").hidden=true;
+    $("#rwStat").innerHTML=`<span>ข้อความของคุณ <b>${wcount(b)}</b> คำ</span><span>วลีซ้ำกับต้นฉบับ (5 คำติดกัน) <b>${pct}%</b></span><button class="btn ghost" id="rwEdit" type="button">แก้ข้อความ</button>`;
+    $("#rwMsg").textContent=pct>25?"มีวลีซ้ำกับต้นฉบับมาก ส่วนที่ไฮไลต์ควรเรียบเรียงใหม่ หรือใส่เครื่องหมายคำพูดพร้อมอ้างอิง":pct>10?"มีวลีซ้ำบางส่วน ตรวจส่วนที่ไฮไลต์":"วลีซ้ำกับต้นฉบับน้อย อย่าลืมอ้างอิงแหล่งเดิม";
+    $("#rwEdit").onclick=()=>{ box.hidden=true; $("#rwMine").hidden=false; $("#rwMine").focus(); };
+  };
+  const outText=()=>$("#rwOut")&&$("#rwOut").dataset.text||"";
+  if($("#rwCopy")) $("#rwCopy").onclick=()=>{ const t=outText(); if(t) copyText(t); };
+  if($("#rwAgain")) $("#rwAgain").onclick=()=>{ const t=outText(); if(!t) return; $("#rwIn").value=t; rwCount(); };
+  if($("#rwIns")) $("#rwIns").onclick=()=>{ const t=outText(); if(!t){ toast("ยังไม่มีผลลัพธ์"); return; } insertInto($("#rwKey").value,t,"append"); toast("แทรกลงหัวข้อแล้ว"); };
+  rwCount(); rwHist();
+}
 
 /* ============ หมวดจริยธรรมการวิจัย ============ */
 const VULN=["เด็กและเยาวชน (อายุต่ำกว่า 18 ปี)","ผู้สูงอายุ","ผู้ที่มีภาวะบกพร่องด้านการรับรู้หรือการตัดสินใจ","ผู้ป่วยหรือผู้รับบริการในความดูแลของผู้วิจัย","นักศึกษาหรือผู้ใต้บังคับบัญชาของผู้วิจัย","สตรีตั้งครรภ์","ผู้ด้อยโอกาสทางเศรษฐกิจหรือสังคม"];
