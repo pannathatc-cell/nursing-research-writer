@@ -168,6 +168,19 @@ tr:last-child td{border-bottom:0}
 .rw-fix del{color:#B3261E}.rw-fix ins{color:#2E7D4F;text-decoration:none;font-weight:600}
 .rw-sim mark{background:rgba(217,63,63,.18);border-radius:3px}
 .rw-hist{margin:14px 0 0}
+.rw-out.ad{white-space:normal}.ad-text{margin:12px 0}
+.ad-card,.ad-sig{font-family:var(--ui)}
+.ad-card{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.ad-band{font-size:22px;font-weight:700;padding:8px 14px;border-radius:10px;text-align:center;min-width:110px}
+.ad-band.low{background:rgba(46,125,79,.14);color:#2E7D4F}.ad-band.medium{background:rgba(201,138,0,.16);color:#8A5D00}.ad-band.high{background:rgba(217,63,63,.15);color:#B3261E}
+.ad-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--sunk);margin:6px 0}
+.ad-bar span{display:block}
+.ad-leg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted)}
+.ad-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.ad-text .s-ai{background:rgba(217,108,0,.22);border-radius:3px}.ad-text .s-mixed{background:rgba(230,180,0,.22);border-radius:3px}
+.ad-text [data-why]{cursor:help}
+.ad-sig{margin:8px 0 0;padding-left:20px;font-size:14px}
+
 .rw-hist li{font-size:13.5px;margin:0 0 6px}
 /* ===== แชตบอตลอย "น้องค้นคว้า" ===== */
 .bot-fab{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:60;display:flex;align-items:flex-end;gap:8px;border:0;background:none;padding:0;cursor:pointer}
@@ -1713,7 +1726,7 @@ const RW_LS="nrw:rewrite";
 function rwState(){ try{ return {tab:"para",mode:"academic",syn:2,lang:"same",keep:"",cite:true,tr:"th2en",sum:"para",hist:[],...JSON.parse(localStorage.getItem(RW_LS)||"{}")}; }catch{ return {tab:"para",mode:"academic",syn:2,lang:"same",keep:"",cite:true,tr:"th2en",sum:"para",hist:[]}; } }
 function rwSave(o){ try{ localStorage.setItem(RW_LS,JSON.stringify({...rwState(),...o})); }catch{} }
 const RW_MODES=[["standard","มาตรฐาน","เปลี่ยนถ้อยคำและโครงสร้างประโยคพอประมาณ คงความหมายเดิม"],["fluency","ลื่นไหล","แก้ให้อ่านลื่น เป็นธรรมชาติ เปลี่ยนคำน้อยที่สุด"],["academic","วิชาการ","ภาษาวิชาการทางการพยาบาล ศัพท์เทคนิคถูกต้อง เหมาะกับวิทยานิพนธ์และบทความ"],["formal","ราชการ/ทางการ","ภาษาทางการ สุภาพ เหมาะกับเอกสารราชการ"],["simple","เข้าใจง่าย","ภาษาง่าย ประโยคสั้น เหมาะกับผู้อ่านทั่วไปหรือสื่อสุขศึกษา"],["shorten","กระชับ","ตัดคำฟุ่มเฟือย ลดความยาวลงประมาณหนึ่งในสาม"],["expand","ขยายความ","อธิบายเพิ่มให้ชัดขึ้น โดยไม่เพิ่มข้อเท็จจริงใหม่"],["custom","กำหนดเอง","พิมพ์คำสั่งเอง"]];
-const RW_TABS=[["para","เรียบเรียง (Paraphrase)"],["grammar","ตรวจไวยากรณ์"],["translate","แปลภาษา"],["summary","สรุปความ"],["sim","ตรวจความซ้ำ"]];
+const RW_TABS=[["para","เรียบเรียง (Paraphrase)"],["grammar","ตรวจไวยากรณ์"],["translate","แปลภาษา"],["summary","สรุปความ"],["sim","ตรวจความซ้ำ"],["detect","ตรวจข้อความจาก AI"]];
 const segWords=t=>{ try{ const sg=new Intl.Segmenter(/[฀-๿]/.test(t)?"th":"en",{granularity:"word"}); return [...sg.segment(t)].map(x=>x.segment); }catch{ return t.split(/(\s+)/); } };
 const isWord=w=>/[\p{L}\p{N}]/u.test(w);
 const wcount=t=>segWords(String(t||"")).filter(isWord).length;
@@ -1785,6 +1798,48 @@ ${text}
   }catch(e){ out.innerHTML=e&&e.text?esc(e.text):'<span class="ph">ไม่ได้ผลลัพธ์</span>'; msg.textContent=e&&e.code==="cancelled"?"หยุดแล้ว":(ERR[e&&e.code]||ERR.upstream_error); }
   go.disabled=false; stop.hidden=true; rwCtl=null;
 }
+
+/* ---------- ตรวจข้อความจาก AI (ประมาณการ ไม่ใช่หลักฐาน) ---------- */
+const AI_PHRASES=["อย่างไรก็ตาม","นอกจากนี้","ดังนั้น","ในยุคปัจจุบัน","มีบทบาทสำคัญ","กล่าวโดยสรุป","ในภาพรวม","ยิ่งไปกว่านั้น","อย่างมีประสิทธิภาพ","ทั้งนี้","ซึ่งสะท้อนให้เห็นว่า","ไม่เพียงแต่","moreover","furthermore","additionally","it is important to note","in conclusion","plays a crucial role","plays a pivotal role","delve","landscape","tapestry","holistic","multifaceted","in today's","overall,","notably","underscore","foster"];
+function splitSegs(t){ return String(t).split(/\n+/).flatMap(par=>par.split(/(?<=[.!?])\s+|(?<=[฀-๿\)])\s+(?=[฀-๿])/)).map(x=>x.trim()).filter(x=>x.length>1); }
+function styleSignals(t,segs){
+  const lens=segs.map(wcount).filter(Boolean); const mean=lens.reduce((a,b)=>a+b,0)/(lens.length||1); const sd=Math.sqrt(lens.reduce((a,b)=>a+(b-mean)**2,0)/(lens.length||1)); const cv=mean?sd/mean:0;
+  const words=segWords(t).filter(isWord).map(w=>w.toLowerCase()); const ttr=words.length?new Set(words).size/words.length:0;
+  const low=t.toLowerCase(); const hits=AI_PHRASES.filter(p=>low.includes(p)); const per100=words.length?hits.reduce((a,p)=>a+low.split(p).length-1,0)*100/words.length:0;
+  return {cv,ttr,hits,per100,mean,n:words.length};
+}
+async function rwDetect(){
+  const inp=$("#rwIn"), out=$("#rwOut"), msg=$("#rwMsg"), go=$("#rwGo"), stop=$("#rwStop"); const text=inp.value.trim();
+  if(!text){ msg.textContent="วางข้อความที่ต้องการตรวจทางซ้ายก่อน"; return; }
+  if(wcount(text)<60){ msg.textContent="ข้อความสั้นเกินไปสำหรับการประเมิน ควรมีอย่างน้อยประมาณ 60 คำ"; return; }
+  if(!S.sample){ msg.innerHTML='ยังไม่ได้เชื่อม AI <button class="btn ghost" data-go="ai" type="button">ตั้งค่า</button>'; return; }
+  const segs=splitSegs(text).slice(0,90); const sig=styleSignals(text,segs);
+  rwCtl=new AbortController(); go.disabled=true; stop.hidden=false; msg.textContent="กำลังวิเคราะห์…"; out.innerHTML='<span class="ph">กำลังวิเคราะห์ลักษณะการเขียน…</span>';
+  try{
+    const j=await S.sample.json(`ประเมินว่าข้อความวิชาการต่อไปนี้แต่ละส่วนมีลักษณะของข้อความที่สร้างโดย AI (เช่น ChatGPT, Claude, Gemini) มากน้อยเพียงใด โดยพิจารณาลักษณะภาษา เช่น โครงสร้างประโยคสม่ำเสมอผิดธรรมชาติ คำเชื่อมสำเร็จรูป การสรุปกว้าง ๆ ที่ไม่มีรายละเอียดเฉพาะบริบท ความลื่นไหลเกินจริง การไม่มีข้อมูลเฉพาะพื้นที่หรือประสบการณ์ตรง
+ให้ระวังว่าการเขียนวิชาการของมนุษย์ก็เป็นทางการและมีคำเชื่อมได้ อย่าตัดสินจากความเป็นทางการอย่างเดียว ถ้าไม่แน่ใจให้ใช้ "mixed"
+ข้อความแบ่งเป็นส่วนที่มีหมายเลขกำกับ:
+${segs.map((x,i)=>`[${i}] ${x}`).join("\n")}
+
+ตอบเป็น JSON เท่านั้น:
+{"ai_share":ตัวเลข 0-100 ประมาณสัดส่วนข้อความที่น่าจะสร้างโดย AI,"refined_share":ตัวเลข 0-100 ประมาณสัดส่วนที่มนุษย์เขียนแต่ถูก AI ปรับแก้,"overall":"low|medium|high","segments":[{"i":หมายเลข,"label":"ai|mixed|human","why":"เหตุผลสั้น ๆ ภาษาไทย"}],"signals":["ข้อสังเกตภาษาไทย 2-5 ข้อ"]}`,{signal:rwCtl.signal,modelTier:"default"});
+    const lab={}; (j.segments||[]).forEach(x=>{ if(Number.isInteger(+x.i)) lab[+x.i]=x; });
+    const ai=Math.max(0,Math.min(100,Math.round(+j.ai_share||0))), rf=Math.max(0,Math.min(100-ai,Math.round(+j.refined_share||0))), hu=100-ai-rf;
+    const band=["low","medium","high"].includes(j.overall)?j.overall:(ai>=60?"high":ai>=25?"medium":"low");
+    const B={low:"ต่ำ",medium:"ปานกลาง",high:"สูง"}[band];
+    const local=[`ความยาวประโยคแปรผัน (burstiness) ${sig.cv.toFixed(2)} ${sig.cv<0.35?"ค่อนข้างสม่ำเสมอ ซึ่งพบบ่อยในข้อความจาก AI":"มีความหลากหลายแบบที่มนุษย์มักเขียน"}`,
+      `ความหลากหลายของคำ ${Math.round(sig.ttr*100)}%`,
+      sig.hits.length?`พบวลีสำเร็จรูปที่ AI ใช้บ่อย ${sig.hits.length} แบบ: ${sig.hits.slice(0,8).join(", ")}`:"ไม่พบวลีสำเร็จรูปที่ AI ใช้บ่อย"];
+    out.dataset.text=text; out.classList.add("ad");
+    out.innerHTML=`<div class="ad-card"><div class="ad-band ${band}">${B}</div><div><b>โอกาสที่เป็นข้อความจาก AI: ${B}</b><div class="ad-bar" role="img" aria-label="AI ${ai}% ปรับแก้ด้วย AI ${rf}% มนุษย์ ${hu}%"><span style="width:${ai}%;background:#D96C00"></span><span style="width:${rf}%;background:#E6B400"></span><span style="width:${hu}%;background:#2E7D4F"></span></div>
+      <div class="ad-leg"><span><i style="background:#D96C00"></i>น่าจะสร้างโดย AI ~${ai}%</span><span><i style="background:#E6B400"></i>มนุษย์เขียน AI ปรับแก้ ~${rf}%</span><span><i style="background:#2E7D4F"></i>น่าจะมนุษย์เขียน ~${hu}%</span></div></div></div>
+      <div class="ad-text">${segs.map((x,i)=>{ const l=lab[i]; const cls=l&&l.label==="ai"?"s-ai":l&&l.label==="mixed"?"s-mixed":""; return cls?`<span class="${cls}" data-why title="${esc(l.why||"")}">${esc(x)}</span>`:esc(x); }).join(" ")}</div>
+      <ul class="ad-sig">${(j.signals||[]).slice(0,5).map(x=>`<li>${esc(x)}</li>`).join("")}${local.map(x=>`<li class="muted">${esc(x)}</li>`).join("")}</ul>`;
+    $("#rwStat").innerHTML=`<span>ตรวจ <b>${wcount(text)}</b> คำ · ${segs.length} ส่วน</span><span>ชี้เมาส์ที่ข้อความไฮไลต์เพื่อดูเหตุผล</span>`;
+    msg.textContent="เป็นการประมาณจากลักษณะภาษาเท่านั้น ไม่ใช่หลักฐานว่าใช้ AI";
+  }catch(e){ out.innerHTML='<span class="ph">วิเคราะห์ไม่สำเร็จ</span>'; msg.textContent=e&&e.code==="cancelled"?"หยุดแล้ว":(ERR[e&&e.code]||ERR.upstream_error); }
+  go.disabled=false; stop.hidden=true; rwCtl=null;
+}
 function rwHist(){ const box=$("#rwHist"); if(!box) return; const h=rwState().hist; const K={para:"เรียบเรียง",grammar:"ไวยากรณ์",translate:"แปล",summary:"สรุป"};
   box.innerHTML=h.length?`<details><summary class="small">ประวัติล่าสุด (${h.length})</summary><ol>${h.map((x,i)=>`<li><a href="#" data-h="${i}">${esc(K[x.kind]||x.kind)} · ${new Date(x.t).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})} · ${esc(x.src.slice(0,60))}…</a></li>`).join("")}</ol><button class="btn ghost" id="rwHClr" type="button">ล้างประวัติ</button></details>`:"";
   $$("[data-h]",box).forEach(a=>a.onclick=e=>{ e.preventDefault(); const x=h[+a.dataset.h]; $("#rwIn").value=x.src; $("#rwOut").dataset.text=x.out; $("#rwOut").textContent=x.out; rwCount(); });
@@ -1801,8 +1856,9 @@ function vRewrite(){
     grammar:`<span class="muted">ตรวจการสะกด ไวยากรณ์ วรรคตอน และการเว้นวรรค ทั้งภาษาไทยและอังกฤษ แสดงจุดที่แก้พร้อมเหตุผล</span>`,
     translate:`<label>ทิศทาง <select id="rwTr"><option value="th2en" ${st.tr==="th2en"?"selected":""}>ไทย → อังกฤษ (วิชาการ)</option><option value="en2th" ${st.tr==="en2th"?"selected":""}>อังกฤษ → ไทย (วิชาการ)</option></select></label>`,
     summary:`<label>รูปแบบสรุป <select id="rwSum"><option value="para" ${st.sum==="para"?"selected":""}>ความเรียง 1 ย่อหน้า</option><option value="bullets" ${st.sum==="bullets"?"selected":""}>เป็นข้อ ๆ</option><option value="abstract" ${st.sum==="abstract"?"selected":""}>บทคัดย่อ</option></select></label>`,
+    detect:`<span class="muted">ประเมินว่าข้อความมีลักษณะของข้อความที่สร้างโดย AI มากน้อยเพียงใด แยกเป็นรายประโยค ควรมีข้อความอย่างน้อย 60 คำ</span>`,
     sim:`<span class="muted">วางแหล่งต้นฉบับทางซ้าย และข้อความของคุณทางขวา ระบบจะไฮไลต์วลีที่ซ้ำกันตั้งแต่ 5 คำติดกัน (คำนวณในเครื่อง ไม่ส่งข้อมูลออก)</span>`}[tab];
-  const goLabel={para:"เรียบเรียงใหม่",grammar:"ตรวจไวยากรณ์",translate:"แปลภาษา",summary:"สรุปความ",sim:"ตรวจความซ้ำ"}[tab];
+  const goLabel={detect:"ตรวจข้อความ",para:"เรียบเรียงใหม่",grammar:"ตรวจไวยากรณ์",translate:"แปลภาษา",summary:"สรุปความ",sim:"ตรวจความซ้ำ"}[tab];
   M.innerHTML=`<h1>เรียบเรียงและพาราเฟรส</h1>
   <p class="lead">ช่วยเรียบเรียงข้อความวิชาการด้วยถ้อยคำของตนเอง ตรวจไวยากรณ์ แปลไทย-อังกฤษ สรุปความ และตรวจความซ้ำกับต้นฉบับ เพื่อลดการคัดลอกข้อความของผู้อื่นโดยตรง</p>
   <div class="rw-tabs" role="tablist">${RW_TABS.map(([k,l])=>`<button type="button" role="tab" data-tab="${k}" aria-selected="${k===tab}">${l}</button>`).join("")}</div>
@@ -1814,12 +1870,12 @@ function vRewrite(){
     <div class="rw-pane"><textarea id="rwIn" placeholder="${tab==="sim"?"วางข้อความต้นฉบับ (แหล่งที่อ้างอิง)":"วางหรือพิมพ์ข้อความที่ต้องการ"}"></textarea>
       <div class="rw-foot"><span id="rwWc">0 คำ</span><span><button class="btn ghost" id="rwClr" type="button">ล้าง</button> <button class="btn pri" id="rwGo" type="button">${goLabel}</button> <button class="btn" id="rwStop" type="button" hidden>หยุด</button></span></div></div>
     <div class="rw-pane">${tab==="sim"?`<textarea id="rwMine" placeholder="วางข้อความที่คุณเขียน"></textarea><div class="rw-out rw-sim" id="rwSimOut" hidden></div>`:`<div class="rw-out" id="rwOut" aria-live="polite"><span class="ph">ผลลัพธ์จะแสดงที่นี่</span></div>`}
-      <div class="rw-foot"><span class="rw-meter" id="rwStat"></span><span>${tab==="sim"?"":`<button class="btn ghost" id="rwCopy" type="button">คัดลอก</button> <button class="btn ghost" id="rwAgain" type="button">ใช้ผลลัพธ์เป็นต้นฉบับ</button>`}</span></div></div>
+      <div class="rw-foot"><span class="rw-meter" id="rwStat"></span><span>${tab==="sim"||tab==="detect"?"":`<button class="btn ghost" id="rwCopy" type="button">คัดลอก</button> <button class="btn ghost" id="rwAgain" type="button">ใช้ผลลัพธ์เป็นต้นฉบับ</button>`}</span></div></div>
   </div>
   <p class="small" id="rwMsg" style="margin:8px 0"></p>
   ${tab==="grammar"?`<ul class="rw-fix" id="rwFix"></ul>`:""}
-  ${tab!=="sim"&&S.p?`<div class="row" style="margin:6px 0"><label>แทรกผลลัพธ์ลงหัวข้อ <select id="rwKey">${keys.map(k=>`<option value="${k}" ${S.cur&&S.cur.key===k?"selected":""}>${esc(lbl(k))}</option>`).join("")}</select></label><button class="btn" id="rwIns" type="button">แทรกต่อท้ายหัวข้อ</button></div>`:""}
-  <div class="note" style="margin-top:12px">การเรียบเรียงใหม่ไม่ได้ทำให้เนื้อหากลายเป็นของเราเอง ข้อความที่มาจากงานของผู้อื่นยังต้องอ้างอิงแหล่งเดิมทุกครั้ง ใช้เครื่องมือนี้เพื่อสื่อความด้วยถ้อยคำของตนเองและเขียนให้ชัดขึ้น แล้วตรวจความถูกต้องของเนื้อหาก่อนใช้งาน</div>
+  ${tab!=="sim"&&tab!=="detect"&&S.p?`<div class="row" style="margin:6px 0"><label>แทรกผลลัพธ์ลงหัวข้อ <select id="rwKey">${keys.map(k=>`<option value="${k}" ${S.cur&&S.cur.key===k?"selected":""}>${esc(lbl(k))}</option>`).join("")}</select></label><button class="btn" id="rwIns" type="button">แทรกต่อท้ายหัวข้อ</button></div>`:""}
+  ${tab==="detect"?`<div class="note" style="margin-top:12px"><b>ข้อจำกัดของการตรวจข้อความจาก AI:</b> ไม่มีเครื่องมือใดตรวจได้แม่นยำ 100% ผลอาจผิดได้ทั้งสองทาง โดยเฉพาะภาษาไทย ข้อความสั้น ภาษาวิชาการที่เป็นทางการ และงานของผู้เขียนที่ใช้ภาษาอังกฤษเป็นภาษาที่สอง จึงไม่ควรใช้ผลนี้ตัดสินหรือลงโทษผู้เรียนเพียงอย่างเดียว ควรใช้ประกอบการพูดคุยกับผู้เขียน ดูร่างงานและประวัติการเขียน และตรวจความถูกต้องของเนื้อหาและแหล่งอ้างอิง</div>`:`<div class="note" style="margin-top:12px">การเรียบเรียงใหม่ไม่ได้ทำให้เนื้อหากลายเป็นของเราเอง ข้อความที่มาจากงานของผู้อื่นยังต้องอ้างอิงแหล่งเดิมทุกครั้ง ใช้เครื่องมือนี้เพื่อสื่อความด้วยถ้อยคำของตนเองและเขียนให้ชัดขึ้น แล้วตรวจความถูกต้องของเนื้อหาก่อนใช้งาน</div>`}
   <div class="rw-hist" id="rwHist"></div>`;
   $$("[data-tab]",M).forEach(b=>b.onclick=()=>{ rwSave({tab:b.dataset.tab}); vRewrite(); });
   $$("[data-mode]",M).forEach(b=>b.onclick=()=>{ rwSave({mode:b.dataset.mode}); const v=$("#rwIn").value; vRewrite(); $("#rwIn").value=v; rwCount(); });
@@ -1834,6 +1890,7 @@ function vRewrite(){
   $("#rwIn").oninput=rwCount; $("#rwClr").onclick=()=>{ $("#rwIn").value=""; rwCount(); if($("#rwOut")){ $("#rwOut").innerHTML='<span class="ph">ผลลัพธ์จะแสดงที่นี่</span>'; delete $("#rwOut").dataset.text; } $("#rwStat").innerHTML=""; };
   $("#rwStop").onclick=()=>{ if(rwCtl) rwCtl.abort(); };
   $("#rwGo").onclick=()=>{
+    if(tab==="detect") return rwDetect();
     if(tab!=="sim") return rwRun(tab);
     const a=$("#rwIn").value.trim(), b=$("#rwMine").value.trim(); if(!a||!b){ $("#rwMsg").textContent="วางข้อความทั้งสองฝั่งก่อน"; return; }
     const pct=ngramSim(a,b,5); const box=$("#rwSimOut"); box.innerHTML=simHTML(a,b,5); box.hidden=false; $("#rwMine").hidden=true;
