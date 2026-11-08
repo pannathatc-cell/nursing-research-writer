@@ -7,6 +7,10 @@
  *  - บันทึกไฟล์ Word (.docx) ที่สร้างจากโปรแกรม           → โฟลเดอร์ย่อย "Word"
  *  - บันทึกทะเบียนโครงการ คลังอ้างอิง และผลตรวจอ้างอิง APA 7 ลง Google Sheets
  *  - ดึงรายการโครงการและไฟล์สำรองกลับมาเปิดในโปรแกรม
+ *  - ระบบขอใช้งานและอนุมัติ: ผู้ใช้กรอกชื่อ อีเมล หน่วยงาน → แท็บ Users สถานะ "รออนุมัติ"
+ *    แอดมินเปลี่ยนช่อง "สถานะ" ในแท็บ Users เป็น "อนุมัติ" หรือ "ระงับ" (หนึ่งแถวต่อหนึ่งอีเมลต่อหนึ่งเครื่อง)
+ *  - บันทึกการใช้งานทุกครั้งที่เปิดเว็บและเปลี่ยนเมนู → แท็บ Usage และสรุปที่แท็บ Dashboard
+ *  - ตั้งข้อความติดต่อผู้ดูแลและเปิด/ปิดการบังคับขออนุมัติได้ที่แท็บ Settings
  *
  * วิธีติดตั้ง (ทำครั้งเดียว)
  *  1) เปิด Google Sheets ตาม SHEET_ID ด้านล่าง > ส่วนขยาย (Extensions) > Apps Script
@@ -31,8 +35,18 @@ const SHEETS = {
   RefAudit:   ['รหัสโครงการ','ชื่อโครงการ','การอ้างในเนื้อหา','รายการอ้างอิง (APA 7)','สถานะ','หัวข้อที่อ้าง','ลิงก์ตรวจสอบ','ตรวจเมื่อ'],
   Markers:    ['รหัสโครงการ','ชื่อโครงการ','หัวข้อ','ป้าย','ข้อความ','ตรวจเมื่อ'],
   Exports:    ['รหัสโครงการ','ชื่อโครงการ','ชื่อไฟล์ Word','ลิงก์','รหัสไฟล์','ขนาด (KB)','สร้างเมื่อ'],
-  Log:        ['เวลา','คำสั่ง','รหัสโครงการ','ผล','รายละเอียด']
+  Log:        ['เวลา','คำสั่ง','รหัสโครงการ','ผล','รายละเอียด'],
+  Users:      ['อีเมล','ชื่อ-นามสกุล','หน่วยงาน','สถานะ','วันที่ขอใช้งาน','ใช้งานล่าสุด','จำนวนครั้งที่เปิด','เครื่อง','รหัสเครื่อง','หมายเหตุจากแอดมิน'],
+  Usage:      ['เวลา','อีเมล','ชื่อ','เมนู','เครื่อง','รหัสเครื่อง','รหัสการใช้งาน'],
+  Settings:   ['ค่า','ข้อมูล','คำอธิบาย']
 };
+const ST = { OK: 'อนุมัติ', WAIT: 'รออนุมัติ', BAN: 'ระงับ' };
+const SETTING_DEFAULTS = [
+  ['contact', 'กรุณาติดต่อผู้ดูแลระบบ (admin)', 'ข้อความ/ช่องทางติดต่อที่แสดงกับผู้ใช้ที่รออนุมัติหรือถูกระงับ เช่น อีเมล หรือ LINE ID'],
+  ['require_approval', 'ใช่', 'ใช่ = ต้องได้รับอนุมัติก่อนใช้งาน | ไม่ = ใช้งานได้ทันทีหลังลงทะเบียน (ยังบันทึกสถิติ)'],
+  ['message_wait', 'บัญชีของคุณรอการอนุมัติ', 'หัวข้อที่แสดงเมื่อรออนุมัติ'],
+  ['message_ban', 'บัญชีของคุณถูกระงับการใช้งาน', 'หัวข้อที่แสดงเมื่อถูกระงับ']
+];
 
 /* ---------- ติดตั้ง ---------- */
 function setup() {
@@ -40,6 +54,7 @@ function setup() {
   Object.keys(SHEETS).forEach(name => ensureSheet_(ss, name));
   const root = DriveApp.getFolderById(FOLDER_ID);
   sub_(root, 'Projects'); sub_(root, 'Word');
+  setupAccess_(ss);
   Logger.log('พร้อมใช้งาน: โฟลเดอร์ "' + root.getName() + '" และสเปรดชีต "' + ss.getName() + '"');
 }
 
@@ -63,7 +78,12 @@ function handle_(b) {
     lock.waitLock(20000);
     const fn = ACTIONS[b.action];
     if (!fn) return out_({ ok: false, error: 'ไม่รู้จักคำสั่ง ' + b.action });
+    if (DATA_ACTIONS.indexOf(b.action) >= 0 && setting_('require_approval') !== 'ไม่') {
+      const st = deviceStatus_(b.who);
+      if (st !== ST.OK) return out_({ ok: false, blocked: true, status: st, error: 'บัญชีนี้ยังไม่ได้รับอนุมัติให้บันทึกข้อมูล' });
+    }
     const res = fn(b);
+    if (b.action === 'access') return out_(Object.assign({ ok: true }, res));
     log_(b.action, b.pid || (b.project && b.project.id) || '', 'สำเร็จ', res && res.msg || '');
     return out_(Object.assign({ ok: true }, res));
   } catch (err) {
@@ -74,10 +94,40 @@ function handle_(b) {
   }
 }
 
+const DATA_ACTIONS = ['saveProject', 'saveRefs', 'saveAudit', 'saveDocx', 'listProjects', 'loadProject'];
 const ACTIONS = {
+  /** ลงทะเบียน ตรวจสิทธิ์ และบันทึกการใช้งาน: {who:{email,name,org,device,deviceId}, view, session, register} */
+  access(b) {
+    const w = b.who || {}; const email = String(w.email || '').trim().toLowerCase(); const dev = String(w.deviceId || '').trim();
+    if (!email || !dev) return { status: 'ไม่พบ', contact: setting_('contact') };
+    const sh = sheet_('Users'); const n = sh.getLastRow(); const W = SHEETS.Users.length;
+    const rows = n > 1 ? sh.getRange(2, 1, n - 1, W).getValues() : [];
+    let i = rows.findIndex(r => String(r[0]).trim().toLowerCase() === email && String(r[8]) === dev);
+    const now = new Date();
+    if (i < 0) {
+      if (!b.register) return { status: 'ไม่พบ', contact: setting_('contact') };
+      const st = setting_('require_approval') === 'ไม่' ? ST.OK : ST.WAIT;
+      sh.appendRow([email, w.name || '', w.org || '', st, now, now, 0, w.device || '', dev, '']);
+      i = rows.length; rows.push([email, w.name || '', w.org || '', st, now, now, 0, w.device || '', dev, '']);
+      statusRule_(sh);
+    } else if (b.register) {
+      sh.getRange(i + 2, 2, 1, 2).setValues([[w.name || rows[i][1], w.org || rows[i][2]]]);
+    }
+    const r = rows[i]; const status = String(r[3] || ST.WAIT).trim();
+    const count = (Number(r[6]) || 0) + (b.view === 'open' ? 1 : 0);
+    sh.getRange(i + 2, 6, 1, 3).setValues([[now, count, w.device || r[7]]]);
+    if (b.view) {
+      const u = sheet_('Usage'); u.appendRow([now, email, w.name || r[1], String(b.view).slice(0, 60), w.device || '', dev, b.session || '']);
+    }
+    const S = { status: status, contact: setting_('contact'), note: String(r[9] || '') };
+    S.title = status === ST.BAN ? setting_('message_ban') : status === ST.OK ? '' : setting_('message_wait');
+    return S;
+  },
+
   ping(b) {
     const ss = SpreadsheetApp.openById(SHEET_ID), root = DriveApp.getFolderById(FOLDER_ID);
     Object.keys(SHEETS).forEach(name => ensureSheet_(ss, name));
+    if (!ss.getSheetByName('Dashboard')) setupAccess_(ss);
     return { folder: root.getName(), folderUrl: root.getUrl(), sheet: ss.getName(), sheetUrl: ss.getUrl(), msg: 'เชื่อมต่อแล้ว' };
   },
 
@@ -138,6 +188,62 @@ const ACTIONS = {
     return { backup: file.getBlob().getDataAsString('UTF-8'), name: file.getName(), msg: file.getName() };
   }
 };
+
+/* ---------- ระบบขอใช้งาน ---------- */
+function deviceStatus_(who) {
+  const w = who || {}; const email = String(w.email || '').trim().toLowerCase(); const dev = String(w.deviceId || '');
+  if (!email || !dev) return 'ไม่พบ';
+  const sh = sheet_('Users'); const n = sh.getLastRow(); if (n < 2) return 'ไม่พบ';
+  const r = sh.getRange(2, 1, n - 1, SHEETS.Users.length).getValues().find(x => String(x[0]).trim().toLowerCase() === email && String(x[8]) === dev);
+  return r ? String(r[3]).trim() : 'ไม่พบ';
+}
+function setting_(key) {
+  const sh = sheet_('Settings'); const n = sh.getLastRow();
+  const rows = n > 1 ? sh.getRange(2, 1, n - 1, 2).getValues() : [];
+  const f = rows.find(r => String(r[0]).trim() === key); if (f) return String(f[1]).trim();
+  const d = SETTING_DEFAULTS.find(x => x[0] === key); return d ? d[1] : '';
+}
+function statusRule_(sh) {
+  const n = Math.max(sh.getMaxRows() - 1, 1); const rng = sh.getRange(2, 4, n, 1);
+  rng.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([ST.WAIT, ST.OK, ST.BAN], true).setAllowInvalid(false).build());
+  if (sh.getConditionalFormatRules().length) return;
+  const mk = (txt, bg, fg) => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(txt).setBackground(bg).setFontColor(fg).setRanges([rng]).build();
+  sh.setConditionalFormatRules([mk(ST.OK, '#D9EFE2', '#1E6B3F'), mk(ST.WAIT, '#FBEFD5', '#8A5D00'), mk(ST.BAN, '#F8D9D7', '#9E2A22')]);
+}
+function setupAccess_(ss) {
+  const st = ensureSheet_(ss, 'Settings');
+  const have = st.getLastRow() > 1 ? st.getRange(2, 1, st.getLastRow() - 1, 1).getValues().map(r => String(r[0])) : [];
+  SETTING_DEFAULTS.filter(d => have.indexOf(d[0]) < 0).forEach(d => st.appendRow(d));
+  st.setColumnWidth(1, 150); st.setColumnWidth(2, 320); st.setColumnWidth(3, 520);
+  const us = ensureSheet_(ss, 'Users'); statusRule_(us);
+  us.getRange('E:F').setNumberFormat('yyyy-mm-dd hh:mm');
+  ensureSheet_(ss, 'Usage').getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm:ss');
+  let d = ss.getSheetByName('Dashboard'); if (!d) d = ss.insertSheet('Dashboard', 0);
+  d.clear();
+  const F = [
+    ['สรุปการใช้งาน ผู้ช่วยเขียนงานวิจัยทางการพยาบาล', ''],
+    ['', ''],
+    ['ผู้ใช้ทั้งหมด (บัญชี-เครื่อง)', '=COUNTA(Users!A2:A)'],
+    ['อนุมัติแล้ว', '=COUNTIF(Users!D2:D,"อนุมัติ")'],
+    ['รออนุมัติ', '=COUNTIF(Users!D2:D,"รออนุมัติ")'],
+    ['ระงับ', '=COUNTIF(Users!D2:D,"ระงับ")'],
+    ['ผู้ใช้ (อีเมลไม่ซ้ำ) วันนี้', '=IFERROR(COUNTUNIQUE(FILTER(Usage!B2:B,INT(Usage!A2:A)=TODAY())),0)'],
+    ['ผู้ใช้ (อีเมลไม่ซ้ำ) 7 วันล่าสุด', '=IFERROR(COUNTUNIQUE(FILTER(Usage!B2:B,Usage!A2:A>=TODAY()-6)),0)'],
+    ['ผู้ใช้ (อีเมลไม่ซ้ำ) 30 วันล่าสุด', '=IFERROR(COUNTUNIQUE(FILTER(Usage!B2:B,Usage!A2:A>=TODAY()-29)),0)'],
+    ['จำนวนครั้งที่เปิดเว็บ วันนี้', '=IFERROR(COUNTIFS(Usage!D2:D,"open",Usage!A2:A,">="&TODAY()),0)'],
+    ['จำนวนครั้งที่เปิดเว็บ 7 วันล่าสุด', '=IFERROR(COUNTIFS(Usage!D2:D,"open",Usage!A2:A,">="&(TODAY()-6)),0)'],
+    ['จำนวนครั้งที่เปิดเว็บ ทั้งหมด', '=COUNTIF(Usage!D2:D,"open")']
+  ];
+  d.getRange(1, 1, F.length, 2).setValues(F);
+  d.getRange('A1').setFontSize(14).setFontWeight('bold'); d.getRange('A3:A12').setFontWeight('bold');
+  d.getRange('D1').setValue('ผู้ใช้ที่ใช้งานบ่อย (10 อันดับ)').setFontWeight('bold');
+  d.getRange('D2').setFormula('=IFERROR(QUERY(Usage!A2:D,"select B, C, count(A) where B is not null group by B, C order by count(A) desc limit 10 label B \'อีเมล\', C \'ชื่อ\', count(A) \'ครั้ง\'",0),"ยังไม่มีข้อมูล")');
+  d.getRange('H1').setValue('เมนูที่ใช้บ่อย').setFontWeight('bold');
+  d.getRange('H2').setFormula('=IFERROR(QUERY(Usage!A2:D,"select D, count(A) where D is not null and D <> \'open\' group by D order by count(A) desc limit 15 label D \'เมนู\', count(A) \'ครั้ง\'",0),"ยังไม่มีข้อมูล")');
+  d.getRange('K1').setValue('ผู้ใช้ต่อวัน (14 วันล่าสุด)').setFontWeight('bold');
+  d.getRange('K2').setFormula('=IFERROR(QUERY(Usage!A2:B,"select toDate(A), count(B) where A >= date \'"&TEXT(TODAY()-13,"yyyy-mm-dd")&"\' group by toDate(A) order by toDate(A) label toDate(A) \'วันที่\', count(B) \'ครั้ง\'",0),"ยังไม่มีข้อมูล")');
+  d.setColumnWidth(1, 260); d.setColumnWidth(4, 220); d.setColumnWidth(5, 160);
+}
 
 /* ---------- ตัวช่วย ---------- */
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
