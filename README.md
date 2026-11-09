@@ -3,7 +3,9 @@
 
 เว็บแอปช่วยวางโครง เขียน ตรวจ และส่งออกงานวิจัยทางการพยาบาล 5 บท เป็นไฟล์ Word ภาษาไทย
 
-🔗 **ใช้งาน:** https://pannathatc-cell.github.io/nursing-research-writer/
+🔒 **สถานะ:** ระงับการใช้งานชั่วคราว กรุณาติดต่อแอดมินหากต้องการใช้งานต่อ
+
+🔗 https://pannathatc-cell.github.io/nursing-research-writer/
 
 ## ความสามารถหลัก
 - เขียนรายบทและรายหัวข้อ พร้อมผู้ช่วย AI (Claude, OpenAI, Gemini หรือผู้ให้บริการที่เข้ากันได้กับ Claude/OpenAI)
