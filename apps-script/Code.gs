@@ -11,6 +11,9 @@
  *    แอดมินเปลี่ยนช่อง "สถานะ" ในแท็บ Users เป็น "อนุมัติ" หรือ "ระงับ" (หนึ่งแถวต่อหนึ่งอีเมลต่อหนึ่งเครื่อง)
  *  - บันทึกการใช้งานทุกครั้งที่เปิดเว็บและเปลี่ยนเมนู → แท็บ Usage และสรุปที่แท็บ Dashboard
  *  - ตั้งข้อความติดต่อผู้ดูแลและเปิด/ปิดการบังคับขออนุมัติได้ที่แท็บ Settings
+ *  - บัญชีผู้ใช้และโควตา token: แอดมินสร้างบัญชี (ชื่อผู้ใช้ + รหัสผ่าน + จำนวน token) จากเมนู "จัดการผู้ใช้และโควตา token" ในโปรแกรม
+ *    → แท็บ Accounts | ทุกครั้งที่ผู้ใช้เรียก AI จะหัก token และบันทึกที่แท็บ TokenLog เมื่อ token หมดจะใช้ AI ไม่ได้จนกว่าแอดมินเติม
+ *    แก้ในแท็บ Accounts ได้โดยตรง: โควตา token, สถานะ (ใช้งานได้/ระงับ), วันหมดอายุ (รหัสผ่านต้องตั้งจากโปรแกรมเท่านั้น)
  *
  * วิธีติดตั้ง (ทำครั้งเดียว)
  *  1) เปิด Google Sheets ตาม SHEET_ID ด้านล่าง > ส่วนขยาย (Extensions) > Apps Script
@@ -26,8 +29,10 @@
 const FOLDER_ID = '1KDoh6OXY0-ua9b8Y7YfHpEmiKNVJkAEC';
 const SHEET_ID  = '1Z65dzySp-5yF9HSYQ29kp3CJACCgk3h6UDWGvns4ZOM';
 /** รหัสลับที่โปรแกรมต้องส่งมาด้วย ป้องกันคนอื่นที่รู้ URL เขียนข้อมูลลง Drive ของคุณ เปลี่ยนได้ แต่ต้องแก้ในโปรแกรมให้ตรงกัน */
-const TOKEN     = 'ตั้งรหัสลับของคุณเอง';
+const TOKEN     = 'ใส่-token-ของคุณ';
 const TZ        = 'Asia/Bangkok';
+/** หลักฐานรหัสผ่านแอดมิน (ค่าแฮช ไม่ใช่รหัสผ่านจริง) ห้ามเผยแพร่ค่านี้ */
+const ADMIN_PROOF = '__ADMIN_PROOF__';
 
 const SHEETS = {
   Projects:   ['รหัสโครงการ','ชื่อเรื่อง (ไทย)','ชื่อเรื่อง (อังกฤษ)','หัวข้อ/ประเด็น','ผู้วิจัย','รูปแบบอ้างอิง','หัวข้อที่เขียนแล้ว','จำนวนคำ','เอกสารในคลังอ้างอิง','บันทึกล่าสุด','ไฟล์สำรอง (ลิงก์)','รหัสไฟล์สำรอง','บันทึกโดย'],
@@ -38,8 +43,12 @@ const SHEETS = {
   Log:        ['เวลา','คำสั่ง','รหัสโครงการ','ผล','รายละเอียด'],
   Users:      ['อีเมล','ชื่อ-นามสกุล','หน่วยงาน','สถานะ','วันที่ขอใช้งาน','ใช้งานล่าสุด','จำนวนครั้งที่เปิด','เครื่อง','รหัสเครื่อง','หมายเหตุจากแอดมิน'],
   Usage:      ['เวลา','อีเมล','ชื่อ','เมนู','เครื่อง','รหัสเครื่อง','รหัสการใช้งาน'],
-  Settings:   ['ค่า','ข้อมูล','คำอธิบาย']
+  Settings:   ['ค่า','ข้อมูล','คำอธิบาย'],
+  Accounts:   ['ชื่อผู้ใช้','ชื่อ-นามสกุล','สถานะ','โควตา token','ใช้ไปแล้ว (token)','คงเหลือ (token)','วันหมดอายุ','แพ็กเกจ/จำนวนเงิน','หมายเหตุ','สร้างเมื่อ','เข้าใช้ล่าสุด','จำนวนครั้งที่เรียก AI','รหัสผ่าน (แฮช)','รหัสเซสชัน'],
+  TokenLog:   ['เวลา','ชื่อผู้ใช้','ชื่อ','เมนู','token ขาเข้า','token ขาออก','รวม','คงเหลือ','โมเดล','วิธีนับ']
 };
+const AC = { U: 0, NAME: 1, ST: 2, QUOTA: 3, USED: 4, LEFT: 5, EXP: 6, PACK: 7, NOTE: 8, CREATED: 9, LAST: 10, CALLS: 11, HASH: 12, SID: 13 };
+const AST = { OK: 'ใช้งานได้', BAN: 'ระงับ' };
 const ST = { OK: 'อนุมัติ', WAIT: 'รออนุมัติ', BAN: 'ระงับ' };
 const SETTING_DEFAULTS = [
   ['contact', 'กรุณาติดต่อผู้ดูแลระบบ (admin)', 'ข้อความ/ช่องทางติดต่อที่แสดงกับผู้ใช้ที่รออนุมัติหรือถูกระงับ เช่น อีเมล หรือ LINE ID'],
@@ -78,12 +87,12 @@ function handle_(b) {
     lock.waitLock(20000);
     const fn = ACTIONS[b.action];
     if (!fn) return out_({ ok: false, error: 'ไม่รู้จักคำสั่ง ' + b.action });
-    if (DATA_ACTIONS.indexOf(b.action) >= 0 && setting_('require_approval') !== 'ไม่') {
-      const st = deviceStatus_(b.who);
-      if (st !== ST.OK) return out_({ ok: false, blocked: true, status: st, error: 'บัญชีนี้ยังไม่ได้รับอนุมัติให้บันทึกข้อมูล' });
+    if (ADMIN_ACTIONS.indexOf(b.action) >= 0 && !isAdmin_(b)) return out_({ ok: false, error: 'คำสั่งนี้สำหรับผู้ดูแลระบบเท่านั้น (รหัสผ่านแอดมินไม่ถูกต้อง)' });
+    if (DATA_ACTIONS.indexOf(b.action) >= 0 && !isAdmin_(b) && !session_(b)) {
+      return out_({ ok: false, error: 'ต้องเข้าสู่ระบบก่อนบันทึกข้อมูล' });
     }
     const res = fn(b);
-    if (b.action === 'access') return out_(Object.assign({ ok: true }, res));
+    if (b.action === 'access' || b.action === 'meter' || b.action === 'acct') return out_(Object.assign({ ok: true }, res));
     log_(b.action, b.pid || (b.project && b.project.id) || '', 'สำเร็จ', res && res.msg || '');
     return out_(Object.assign({ ok: true }, res));
   } catch (err) {
@@ -94,8 +103,81 @@ function handle_(b) {
   }
 }
 
-const DATA_ACTIONS = ['saveProject', 'saveRefs', 'saveAudit', 'saveDocx', 'listProjects', 'loadProject'];
+const DATA_ACTIONS = ['saveProject', 'saveRefs', 'saveAudit', 'saveDocx'];
+const ADMIN_ACTIONS = ['listProjects', 'loadProject', 'adminList', 'adminSave', 'adminLog'];
 const ACTIONS = {
+  /** ผู้ใช้เข้าสู่ระบบ: {u, ph} → ออกรหัสเซสชันใหม่ (เข้าจากเครื่องใหม่ เครื่องเดิมจะถูกออกจากระบบ) */
+  login(b) {
+    const f = acctFind_(b.u);
+    if (!f || !b.ph || String(f.row[AC.HASH]) !== String(b.ph)) throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    const chk = acctCheck_(f.row); if (chk) throw new Error(chk);
+    const sid = Utilities.getUuid();
+    f.sh.getRange(f.r, AC.LAST + 1).setValue(new Date());
+    f.sh.getRange(f.r, AC.SID + 1).setValue(sid);
+    return Object.assign({ sid: sid, msg: 'เข้าสู่ระบบ ' + f.row[AC.U] }, acctInfo_(f.row));
+  },
+  /** ตรวจเซสชันและยอด token คงเหลือ */
+  acct(b) {
+    const f = session_(b); if (!f) return { valid: false, error: 'เซสชันหมดอายุหรือมีการเข้าสู่ระบบจากเครื่องอื่น' };
+    const chk = acctCheck_(f.row); if (chk) return { valid: false, error: chk };
+    return Object.assign({ valid: true }, acctInfo_(f.row));
+  },
+  /** หัก token หลังเรียก AI: {u, sid, tin, tout, view, model, how} */
+  meter(b) {
+    const f = session_(b); if (!f) return { valid: false, error: 'เซสชันหมดอายุหรือมีการเข้าสู่ระบบจากเครื่องอื่น' };
+    const tin = Math.max(0, Math.round(Number(b.tin) || 0)), tout = Math.max(0, Math.round(Number(b.tout) || 0));
+    const used = (Number(f.row[AC.USED]) || 0) + tin + tout, quota = Number(f.row[AC.QUOTA]) || 0, calls = (Number(f.row[AC.CALLS]) || 0) + 1;
+    f.sh.getRange(f.r, AC.USED + 1, 1, 2).setValues([[used, quota - used]]);
+    f.sh.getRange(f.r, AC.CALLS + 1).setValue(calls);
+    sheet_('TokenLog').appendRow([new Date(), f.row[AC.U], f.row[AC.NAME], String(b.view || '').slice(0, 60), tin, tout, tin + tout, quota - used, String(b.model || '').slice(0, 60), b.how === 'est' ? 'ประมาณจากจำนวนตัวอักษร' : 'จากผู้ให้บริการ']);
+    f.row[AC.USED] = used; f.row[AC.CALLS] = calls;
+    const chk = acctCheck_(f.row);
+    return Object.assign({ valid: !chk, error: chk || '' }, acctInfo_(f.row));
+  },
+  /** แอดมิน: รายชื่อบัญชีทั้งหมด (ไม่ส่งรหัสผ่าน) */
+  adminList() {
+    const sh = sheet_('Accounts'); const n = sh.getLastRow();
+    const rows = n > 1 ? sh.getRange(2, 1, n - 1, SHEETS.Accounts.length).getValues() : [];
+    const d = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '');
+    const dt = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm') : String(v || '');
+    return { accounts: rows.filter(r => String(r[AC.U]).trim()).map(r => ({ u: String(r[AC.U]), name: String(r[AC.NAME]), status: String(r[AC.ST] || AST.OK),
+      quota: Number(r[AC.QUOTA]) || 0, used: Number(r[AC.USED]) || 0, exp: d(r[AC.EXP]), pack: String(r[AC.PACK] || ''), note: String(r[AC.NOTE] || ''),
+      created: dt(r[AC.CREATED]), last: dt(r[AC.LAST]), calls: Number(r[AC.CALLS]) || 0, hasPw: !!String(r[AC.HASH] || '') })) };
+  },
+  /** แอดมิน: สร้างหรือแก้ไขบัญชี {acct:{u,name,status,quota,addQuota,resetUsed,exp,pack,note,ph,kick}} */
+  adminSave(b) {
+    const a = b.acct || {}; const u = String(a.u || '').trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,40}$/.test(u)) throw new Error('ชื่อผู้ใช้ต้องเป็น a-z 0-9 . _ - ยาว 3–40 ตัว');
+    let f = acctFind_(u); const sh = sheet_('Accounts');
+    if (!f) {
+      if (!a.ph) throw new Error('บัญชีใหม่ต้องตั้งรหัสผ่าน');
+      sh.appendRow([u, '', AST.OK, 0, 0, 0, '', '', '', new Date(), '', 0, '', '']);
+      acctRule_(sh); f = acctFind_(u);
+    }
+    const r = f.row;
+    if (a.name !== undefined) r[AC.NAME] = String(a.name);
+    if (a.status) r[AC.ST] = a.status === AST.BAN ? AST.BAN : AST.OK;
+    if (a.quota !== undefined && a.quota !== '') r[AC.QUOTA] = Math.max(0, Number(a.quota) || 0);
+    if (a.addQuota) r[AC.QUOTA] = (Number(r[AC.QUOTA]) || 0) + Number(a.addQuota);
+    if (a.resetUsed) { r[AC.USED] = 0; r[AC.CALLS] = 0; }
+    if (a.exp !== undefined) r[AC.EXP] = a.exp ? new Date(a.exp + 'T23:59:59+07:00') : '';
+    if (a.pack !== undefined) r[AC.PACK] = String(a.pack);
+    if (a.note !== undefined) r[AC.NOTE] = String(a.note);
+    if (a.ph) { r[AC.HASH] = String(a.ph); r[AC.SID] = ''; }
+    if (a.kick || r[AC.ST] === AST.BAN) r[AC.SID] = '';
+    r[AC.LEFT] = (Number(r[AC.QUOTA]) || 0) - (Number(r[AC.USED]) || 0);
+    sh.getRange(f.r, 1, 1, SHEETS.Accounts.length).setValues([r]);
+    return { msg: 'บันทึกบัญชี ' + u };
+  },
+  /** แอดมิน: ประวัติการใช้ token ล่าสุด {u?, limit} */
+  adminLog(b) {
+    const sh = sheet_('TokenLog'); const n = sh.getLastRow(); const lim = Math.min(Number(b.limit) || 200, 1000);
+    if (n < 2) return { log: [] };
+    const start = Math.max(2, n - 4999); let rows = sh.getRange(start, 1, n - start + 1, 10).getValues();
+    if (b.u) rows = rows.filter(r => String(r[1]) === String(b.u));
+    return { log: rows.slice(-lim).reverse().map(r => ({ t: r[0] instanceof Date ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd HH:mm') : String(r[0]), u: String(r[1]), view: String(r[3]), tin: Number(r[4]) || 0, tout: Number(r[5]) || 0, left: Number(r[7]) || 0, model: String(r[8]) })) };
+  },
+
   /** ลงทะเบียน ตรวจสิทธิ์ และบันทึกการใช้งาน: {who:{email,name,org,device,deviceId}, view, session, register} */
   access(b) {
     const w = b.who || {}; const email = String(w.email || '').trim().toLowerCase(); const dev = String(w.deviceId || '').trim();
@@ -189,6 +271,37 @@ const ACTIONS = {
   }
 };
 
+/* ---------- บัญชีผู้ใช้และโควตา token ---------- */
+function isAdmin_(b) { return ADMIN_PROOF && ADMIN_PROOF.indexOf('__') !== 0 && String(b.admin || '') === ADMIN_PROOF; }
+function acctFind_(u) {
+  u = String(u || '').trim().toLowerCase(); if (!u) return null;
+  const sh = sheet_('Accounts'); const n = sh.getLastRow(); if (n < 2) return null;
+  const rows = sh.getRange(2, 1, n - 1, SHEETS.Accounts.length).getValues();
+  const i = rows.findIndex(r => String(r[AC.U]).trim().toLowerCase() === u);
+  return i < 0 ? null : { sh: sh, r: i + 2, row: rows[i] };
+}
+function session_(b) {
+  if (!b || !b.u || !b.sid) return null;
+  const f = acctFind_(b.u); return f && String(f.row[AC.SID]) === String(b.sid) ? f : null;
+}
+function acctCheck_(r) {
+  if (String(r[AC.ST]).trim() === AST.BAN) return 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+  const e = r[AC.EXP]; if (e && new Date(e).getTime() < Date.now()) return 'บัญชีนี้หมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบ';
+  return '';
+}
+function acctInfo_(r) {
+  const q = Number(r[AC.QUOTA]) || 0, u = Number(r[AC.USED]) || 0, e = r[AC.EXP];
+  return { u: String(r[AC.U]), name: String(r[AC.NAME] || r[AC.U]), quota: q, used: u, left: q - u,
+    exp: e instanceof Date ? Utilities.formatDate(e, TZ, 'yyyy-MM-dd') : String(e || ''), status: String(r[AC.ST] || AST.OK) };
+}
+function acctRule_(sh) {
+  const n = Math.max(sh.getMaxRows() - 1, 1); const rng = sh.getRange(2, AC.ST + 1, n, 1);
+  rng.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([AST.OK, AST.BAN], true).setAllowInvalid(false).build());
+  sh.getRange(2, AC.QUOTA + 1, n, 3).setNumberFormat('#,##0');
+  sh.getRange(2, AC.EXP + 1, n, 1).setNumberFormat('yyyy-mm-dd');
+  sh.getRange(2, AC.CREATED + 1, n, 2).setNumberFormat('yyyy-mm-dd hh:mm');
+}
+
 /* ---------- ระบบขอใช้งาน ---------- */
 function deviceStatus_(who) {
   const w = who || {}; const email = String(w.email || '').trim().toLowerCase(); const dev = String(w.deviceId || '');
@@ -216,6 +329,8 @@ function setupAccess_(ss) {
   SETTING_DEFAULTS.filter(d => have.indexOf(d[0]) < 0).forEach(d => st.appendRow(d));
   st.setColumnWidth(1, 150); st.setColumnWidth(2, 320); st.setColumnWidth(3, 520);
   const us = ensureSheet_(ss, 'Users'); statusRule_(us);
+  acctRule_(ensureSheet_(ss, 'Accounts'));
+  ensureSheet_(ss, 'TokenLog').getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm:ss');
   us.getRange('E:F').setNumberFormat('yyyy-mm-dd hh:mm');
   ensureSheet_(ss, 'Usage').getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm:ss');
   let d = ss.getSheetByName('Dashboard'); if (!d) d = ss.insertSheet('Dashboard', 0);
@@ -232,10 +347,14 @@ function setupAccess_(ss) {
     ['ผู้ใช้ (อีเมลไม่ซ้ำ) 30 วันล่าสุด', '=IFERROR(COUNTUNIQUE(FILTER(Usage!B2:B,Usage!A2:A>=TODAY()-29)),0)'],
     ['จำนวนครั้งที่เปิดเว็บ วันนี้', '=IFERROR(COUNTIFS(Usage!D2:D,"open",Usage!A2:A,">="&TODAY()),0)'],
     ['จำนวนครั้งที่เปิดเว็บ 7 วันล่าสุด', '=IFERROR(COUNTIFS(Usage!D2:D,"open",Usage!A2:A,">="&(TODAY()-6)),0)'],
-    ['จำนวนครั้งที่เปิดเว็บ ทั้งหมด', '=COUNTIF(Usage!D2:D,"open")']
+    ['จำนวนครั้งที่เปิดเว็บ ทั้งหมด', '=COUNTIF(Usage!D2:D,"open")'],
+    ['', ''],
+    ['บัญชีผู้ใช้ทั้งหมด', '=COUNTA(Accounts!A2:A)'],
+    ['token ที่ใช้ไปทั้งหมด', '=SUM(Accounts!E2:E)'],
+    ['token ที่ใช้ไป วันนี้', '=IFERROR(SUMIFS(TokenLog!G2:G,TokenLog!A2:A,">="&TODAY()),0)']
   ];
   d.getRange(1, 1, F.length, 2).setValues(F);
-  d.getRange('A1').setFontSize(14).setFontWeight('bold'); d.getRange('A3:A12').setFontWeight('bold');
+  d.getRange('A1').setFontSize(14).setFontWeight('bold'); d.getRange('A3:A16').setFontWeight('bold'); d.getRange('B14:B16').setNumberFormat('#,##0');
   d.getRange('D1').setValue('ผู้ใช้ที่ใช้งานบ่อย (10 อันดับ)').setFontWeight('bold');
   d.getRange('D2').setFormula('=IFERROR(QUERY(Usage!A2:D,"select B, C, count(A) where B is not null group by B, C order by count(A) desc limit 10 label B \'อีเมล\', C \'ชื่อ\', count(A) \'ครั้ง\'",0),"ยังไม่มีข้อมูล")');
   d.getRange('H1').setValue('เมนูที่ใช้บ่อย').setFontWeight('bold');
