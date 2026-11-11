@@ -2490,7 +2490,7 @@ function authShow(tab="user",msg=""){
       const a={role:"user",u:j.u,name:j.name,sid:j.sid,quota:j.quota,used:j.used,left:j.left,exp:j.exp,pend:{tin:0,tout:0},t:Date.now(),exp_ms:0}; a.exp=j.exp; a.expAt=Date.now()+90*24*3600e3;
       AUTH_SESS=a; authSessFix(); authApply(a); authSave(); gateHide(); toast(`ยินดีต้อนรับ ${j.name}`+(j.left<=0?" (token หมดแล้ว ติดต่อผู้ดูแลระบบ)":""));
     }catch(ex){ const m=String(ex&&ex.message||"");
-      err.textContent=/ไม่รู้จักคำสั่ง/.test(m)?"ระบบบัญชีผู้ใช้ยังไม่พร้อม (ผู้ดูแลระบบต้องอัปเดตโค้ด Apps Script) กรุณาติดต่อผู้ดูแลระบบ":m||"เข้าสู่ระบบไม่สำเร็จ";
+      err.textContent=S.claudeSample&&/เชื่อมต่อ Apps Script ไม่ได้/.test(m)?"หน้านี้ใน claude.ai เข้าสู่ระบบผู้ใช้ไม่ได้ กรุณาเปิดผ่านลิงก์ https://pannathatc-cell.github.io/nursing-research-writer/":/ไม่รู้จักคำสั่ง/.test(m)?"ระบบบัญชีผู้ใช้ยังไม่พร้อม (ผู้ดูแลระบบต้องอัปเดตโค้ด Apps Script) กรุณาติดต่อผู้ดูแลระบบ":m||"เข้าสู่ระบบไม่สำเร็จ";
       $("#lgPw").value=""; go_.disabled=false; }
   };
   setTimeout(()=>{ const f=$("#lgUser")&&!$("#lgUser").value?$("#lgUser"):$("#lgPw"); f&&f.focus(); },30);
@@ -2504,7 +2504,6 @@ async function authRefresh(){
     Object.assign(AUTH_SESS,{name:j.name,quota:j.quota,used:j.used,left:j.left,exp:j.exp}); authSave(); authBar(); meterFlush(); }catch{}
 }
 function authStart(){
-  if(S.claudeSample){ authApply({role:"admin",name:"ผู้ดูแลระบบ",temp:true}); return; }
   const a=authSavedUser()||authSaved();
   if(a&&a.role==="admin"&&a.exp>Date.now()){ authApply(a); return; }
   if(a&&a.role==="user"){ authApply(a); authRefresh(); return; }
@@ -2558,7 +2557,7 @@ function vUsers(){
   M.innerHTML=`<h1>จัดการผู้ใช้และโควตา token</h1>
   <p class="lead">สร้างบัญชีให้ผู้ใช้แต่ละคน กำหนดจำนวน token ตามแพ็กเกจที่ซื้อ ผู้ใช้เห็นยอดคงเหลือที่แถบด้านซ้าย เมื่อ token หมดจะใช้ผู้ช่วย AI ไม่ได้จนกว่าคุณเติม ข้อมูลเก็บที่แท็บ <b>Accounts</b> และ <b>TokenLog</b> ใน Google Sheets</p>
   ${UA.shown?`<div class="panel" style="border-left:4px solid var(--accent)"><b>ส่งข้อมูลเข้าสู่ระบบนี้ให้ผู้ใช้</b> (รหัสผ่านแสดงครั้งเดียว ระบบเก็บเฉพาะค่าเข้ารหัส)
-    <pre style="margin:8px 0;background:var(--sunk);padding:10px;border-radius:8px;white-space:pre-wrap" id="uaCred">เว็บไซต์: ${esc(location.protocol==="file:"?"https://pannathatc-cell.github.io/nursing-research-writer/":location.href.split("#")[0])}\nชื่อผู้ใช้: ${esc(UA.shown.u)}\nรหัสผ่าน: ${esc(UA.shown.pw)}</pre>
+    <pre style="margin:8px 0;background:var(--sunk);padding:10px;border-radius:8px;white-space:pre-wrap" id="uaCred">เว็บไซต์: https://pannathatc-cell.github.io/nursing-research-writer/\nชื่อผู้ใช้: ${esc(UA.shown.u)}\nรหัสผ่าน: ${esc(UA.shown.pw)}</pre>
     <div class="row"><button class="btn" id="uaCopyCred" type="button">คัดลอก</button><button class="btn ghost" id="uaHideCred" type="button">ซ่อน</button></div></div>`:""}
   <h2>${e?"แก้ไขบัญชี "+esc(e.u):"สร้างบัญชีใหม่"}</h2>
   <form class="panel" id="uaForm" novalidate><div class="grid2">
