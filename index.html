@@ -225,6 +225,14 @@ tr:last-child td{border-bottom:0}
 .jr-view{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;font-family:var(--doc);font-size:16px;line-height:1.8;white-space:pre-wrap;max-height:560px;overflow:auto}
 .jr-view .rv{color:#C62828}
 .jr-check li{margin:0 0 6px}
+.jr-rvgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.jr-rvgrid{grid-template-columns:1fr}}
+.jr-rvcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.jr-rvcard header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.jr-rvcard textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--doc);font-size:15px;line-height:1.6;background:var(--sunk);color:var(--ink);resize:vertical}
+.jr-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 8px;font-size:13.5px}
+.jr-legend i{display:inline-block;width:14px;height:14px;border-radius:3px;border:2px solid;vertical-align:-2px;margin-right:5px}
+.jr-view .rvtag{font-family:var(--ui);font-size:10.5px;font-weight:700;margin:0 2px}
 /* ===== แชตบอตลอย "น้องค้นคว้า" ===== */
 .bot-fab{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:60;display:flex;align-items:flex-end;gap:8px;border:0;background:none;padding:0;cursor:pointer}
 .bot-fab img{width:68px;height:68px;border-radius:50%;box-shadow:0 6px 18px rgba(22,33,44,.25);border:3px solid var(--surface);transition:transform .15s}
@@ -2019,18 +2027,53 @@ function accessSignOut(){ lsDel(WHO_LS); lsDel(ACC_LS); ACC.state="blocked"; gat
 
 /* ============ แก้ไขบทความตามข้อเสนอแนะผู้ทรงคุณวุฒิวารสาร (Journal revision) ============ */
 const JR_LS="nrw:jrev";
-const JR_DEF={step:1,journal:"",round:"รอบที่ 1",lang:"th",guide:"",ms:"",ms0:"",comments:"",items:[],check:null,letter:"",author:""};
-function jrGet(){ try{ return {...JR_DEF,...JSON.parse(localStorage.getItem(JR_LS)||"{}")}; }catch{ return {...JR_DEF}; } }
+const JR_RV=[["1","ผู้ทรงคุณวุฒิท่านที่ 1","R1"],["2","ผู้ทรงคุณวุฒิท่านที่ 2","R2"],["3","ผู้ทรงคุณวุฒิท่านที่ 3","R3"],["E","บรรณาธิการ (ถ้ามี)","E"]];
+const JR_COLOR={"1":{txt:"C00000",hl:"yellow",css:"#C62828",bg:"rgba(255,235,59,.45)",name:"แดง",hlName:"เหลือง"},"2":{txt:"0070C0",hl:"cyan",css:"#1565C0",bg:"rgba(0,229,255,.32)",name:"น้ำเงิน",hlName:"ฟ้า"},"3":{txt:"00875A",hl:"green",css:"#1B7F4C",bg:"rgba(118,255,3,.38)",name:"เขียว",hlName:"เขียว"},"E":{txt:"7030A0",hl:"lightGray",css:"#6A1B9A",bg:"rgba(180,180,180,.45)",name:"ม่วง",hlName:"เทา"},"0":{txt:"C00000",hl:"yellow",css:"#C62828",bg:"rgba(255,235,59,.45)",name:"แดง",hlName:"เหลือง"}};
+const JR_DEF={step:1,journal:"",round:"รอบที่ 1",lang:"th",guide:"",ms:"",ms0:"",comments:"",rv:{"1":"","2":"","3":"","E":""},rvFile:{},items:[],check:null,letter:"",author:"",exColor:"text",exTag:true};
+function jrGet(){ try{ const o={...JR_DEF,...JSON.parse(localStorage.getItem(JR_LS)||"{}")}; o.rv={...JR_DEF.rv,...(o.rv||{})}; o.rvFile=o.rvFile||{};
+  if(o.comments&&!Object.values(o.rv).some(Boolean)) o.rv["1"]=o.comments; return o; }catch{ return {...JR_DEF,rv:{...JR_DEF.rv}}; } }
 let JR=null;
 function jrSave(){ try{ localStorage.setItem(JR_LS,JSON.stringify(JR)); }catch{ toast("บันทึกในเบราว์เซอร์ไม่สำเร็จ ข้อความอาจยาวเกินไป"); } }
-const JR_OPEN="⟦", JR_CLOSE="⟧";
-const jrClean=t=>String(t||"").split(JR_OPEN).join("").split(JR_CLOSE).join("");
+const JR_MK=/⟦(?:([^|⟦⟧\n]{1,20})\|)?([\s\S]*?)⟧/g;
+const jrClean=t=>String(t||"").replace(JR_MK,"$2");
 const JR_DEC={accept:"แก้ไขตามข้อเสนอแนะ",partial:"แก้ไขบางส่วนพร้อมชี้แจง",rebut:"ชี้แจงโดยไม่แก้ไข"};
-const JR_STEPS=[["ต้นฉบับและวารสาร"],["ข้อเสนอแนะผู้ทรงฯ"],["แก้ไขทีละข้อ"],["ตรวจความสมบูรณ์"],["ส่งออกเอกสาร"]];
+const JR_STEPS=[["ต้นฉบับและวารสาร"],["ไฟล์ผู้ทรงฯ 1–3"],["แก้ไขทีละข้อ"],["ตรวจความสมบูรณ์"],["ส่งออกเอกสาร"]];
+const jrRvOf=id=>{ const it=(JR.items||[]).find(x=>x.id===id); if(it&&it.rv) return it.rv; const m=String(id||"").match(/^R([123])/i); return m?m[1]:/^E/i.test(id||"")?"E":"0"; };
+const jrRvName=k=>(JR_RV.find(x=>x[0]===k)||[,"ผู้ประเมิน"])[1].replace(" (ถ้ามี)","");
+/* แผนที่ตำแหน่ง: ข้อความสะอาด ↔ ข้อความที่มีเครื่องหมาย */
+function jrMap(raw){
+  const clean=[], pos=[], seg=[]; let i=0, cur=null;
+  while(i<raw.length){ const ch=raw[i];
+    if(ch==="⟦"){ const m=raw.slice(i+1,i+22).match(/^([^|⟦⟧\n]{1,20})\|/); cur={open:i,id:m?m[1]:"",cs:i+1+(m?m[0].length:0),close:-1}; i=cur.cs; continue; }
+    if(ch==="⟧"&&cur){ cur.close=i; cur=null; i++; continue; }
+    clean.push(ch); pos.push(i); seg.push(cur); i++; }
+  return {clean:clean.join(""),pos,seg};
+}
+function jrLocate(raw,needle){
+  const n=String(needle||"").trim(); if(!n) return null; const M=jrMap(raw); let cs=M.clean.indexOf(n), len=n.length;
+  if(cs<0){ const re=new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+")); const m=M.clean.match(re); if(!m) return null; cs=m.index; len=m[0].length; }
+  return {M,cs,ce:cs+len};
+}
+const jrMk=(id,t)=>t?"⟦"+(id?id+"|":"")+t+"⟧":"";
+function jrApplyEdit(ed,id){
+  const rev=String(ed.revised||"").trim().replace(/[⟦⟧]/g,""); if(!rev) return false; const tag=String(id||"").replace(/[|⟦⟧\n]/g,"").slice(0,20)||"0";
+  const raw=JR.ms;
+  if(ed.original&&ed.original.trim()){ const L=jrLocate(raw,ed.original); if(!L) return false; const {M,cs,ce}=L;
+    let start=M.pos[cs], end=M.pos[ce-1]+1, left="", right=""; const s0=M.seg[cs], s1=M.seg[ce-1];
+    if(s0){ left=jrMk(s0.id,raw.slice(s0.cs,start)); start=s0.open; }
+    if(s1&&s1.close>=0){ right=jrMk(s1.id,raw.slice(end,s1.close)); end=s1.close+1; }
+    JR.ms=raw.slice(0,start)+left+jrMk(tag,rev)+right+raw.slice(end); return true; }
+  if(ed.anchor&&ed.anchor.trim()){ const L=jrLocate(raw,ed.anchor); if(!L) return false; const {M,ce}=L; let end=M.pos[ce-1]+1; const s1=M.seg[ce-1]; if(s1&&s1.close>=0) end=s1.close+1;
+    JR.ms=raw.slice(0,end)+" "+jrMk(tag,rev)+raw.slice(end); return true; }
+  return false;
+}
+function jrViewHTML(t){ return esc(t).replace(/⟦(?:([^|⟦⟧\n]{1,20})\|)?([\s\S]*?)⟧/g,(m,id,txt)=>{ const k=id?jrRvOf(id):"0"; const c=JR_COLOR[k]; return `<span class="rv" style="color:${c.css};background:${c.bg}" title="${esc(id?id+" · "+jrRvName(k):"แก้ไข")}">${txt}</span>${id?`<sup class="rvtag" style="color:${c.css}">${esc(id)}</sup>`:""}`; }); }
+function jrLegendHTML(){ return `<div class="jr-legend">${JR_RV.filter(([k])=>JR.items.some(x=>x.rv===k)).map(([k,l])=>`<span><i style="background:${JR_COLOR[k].bg};border-color:${JR_COLOR[k].css}"></i><b style="color:${JR_COLOR[k].css}">${l.replace(" (ถ้ามี)","")}</b></span>`).join("")}</div>`; }
 function jrRules(){ return `# บทบาท
-คุณเป็นผู้ทรงคุณวุฒิและบรรณาธิการวารสารวิชาการทางการพยาบาลและสาธารณสุขในประเทศไทย (TCI กลุ่ม 1–2 และวารสารนานาชาติ) มีประสบการณ์ช่วยผู้นิพนธ์แก้ไขต้นฉบับตามข้อเสนอแนะของผู้ประเมินให้ผ่านการพิจารณาตีพิมพ์
+คุณเป็นผู้ทรงคุณวุฒิและบรรณาธิการวารสารวิชาการทางการพยาบาลและสาธารณสุขในประเทศไทย (TCI กลุ่ม 1–2 และวารสารนานาชาติ) มีประสบการณ์ช่วยผู้นิพนธ์แก้ไขต้นฉบับตามข้อเสนอแนะของผู้ประเมินหลายท่านให้ผ่านการพิจารณาตีพิมพ์
 # กติกาที่ต้องทำตามเคร่งครัด
 - แก้ให้ตรงกับข้อเสนอแนะแต่ละข้ออย่างครบถ้วน แก้เท่าที่จำเป็น ไม่เปลี่ยนส่วนที่ผู้ประเมินไม่ได้ขอ
+- ข้อเสนอแนะของผู้ประเมินต่างท่านอาจซ้ำหรือขัดกัน ให้แก้ให้สอดคล้องกันทั้งบทความ ถ้าขัดกันให้เลือกแนวทางที่เหมาะสมที่สุดและชี้แจงในคำตอบ
 - ห้ามสร้างข้อมูล ตัวเลข ค่าสถิติ ผลการวิจัย หรือรายละเอียดวิธีวิจัยที่ไม่มีในต้นฉบับหรือในข้อมูลที่ผู้นิพนธ์ให้มา ถ้าการแก้ต้องใช้ข้อมูลที่ไม่มี ให้เขียน [ต้องเพิ่มข้อมูลจริง: ระบุสิ่งที่ต้องเติม]
 - ห้ามแต่งเอกสารอ้างอิงใหม่ ถ้าต้องมีการอ้างอิงเพิ่ม ให้ใช้เฉพาะรายการที่มีในต้นฉบับหรือที่ผู้นิพนธ์ให้มา ไม่เช่นนั้นเขียน [ต้องหาแหล่งอ้างอิง: ประเด็น]
 - รักษาการอ้างอิงในเนื้อหา ตัวเลข และศัพท์เทคนิคเดิม รูปแบบอ้างอิงตามที่วารสารกำหนด (ค่าเริ่มต้น APA 7th)
@@ -2044,21 +2087,16 @@ function jrPromptAll(items){
 ${clip(jrClean(JR.ms),60000)}
 """
 ${JR.author?`# ข้อมูลเพิ่มเติมจากผู้นิพนธ์\n${clip(JR.author,6000)}\n`:""}
-# ข้อเสนอแนะที่ต้องแก้
-${items.map(x=>`[${x.id}] (${x.reviewer||"ผู้ประเมิน"}) ${x.comment}${x.note?`\n   ข้อมูล/ความเห็นของผู้นิพนธ์: ${x.note}`:""}${x.decision&&x.decision!=="auto"?`\n   ผู้นิพนธ์เลือก: ${JR_DEC[x.decision]}`:""}`).join("\n")}
+# ข้อเสนอแนะทั้งหมดของทุกท่าน (ใช้เป็นบริบทเพื่อให้แก้สอดคล้องกัน)
+${JR.items.map(x=>`[${x.id}] ${jrRvName(x.rv)}: ${clip(x.comment,300)}`).join("\n")}
+
+# ข้อที่ต้องแก้ในครั้งนี้
+${items.map(x=>`[${x.id}] (${jrRvName(x.rv)}) ${x.comment}${x.anchor?`\n   ข้อความในต้นฉบับที่ผู้ประเมินระบุ: "${x.anchor}"`:""}${x.note?`\n   ข้อมูล/ความเห็นของผู้นิพนธ์: ${x.note}`:""}${x.decision&&x.decision!=="auto"?`\n   ผู้นิพนธ์เลือก: ${JR_DEC[x.decision]}`:""}`).join("\n")}
 
 # รูปแบบคำตอบ
 ตอบเป็น JSON เท่านั้น: {"items":[{"id":"รหัสข้อตามด้านบน","decision":"accept|partial|rebut","location":"ส่วน/หัวข้อที่แก้ เช่น บทนำ ย่อหน้าที่ 2","edits":[{"original":"ข้อความเดิมที่คัดลอกจากต้นฉบับแบบตรงตัวอักษรทุกตัว (ประโยคหรือย่อหน้าที่ต้องแก้) ถ้าเป็นการเพิ่มข้อความใหม่ให้เว้นว่าง","anchor":"ถ้า original ว่าง ให้คัดลอกประโยคเดิมแบบตรงตัวที่จะแทรกข้อความใหม่ต่อท้าย","revised":"ข้อความที่แก้แล้วหรือข้อความใหม่"}],"response":"คำตอบถึงผู้ประเมิน","needs":["สิ่งที่ผู้นิพนธ์ต้องทำเพิ่มเอง ถ้ามี"]}]}
-ถ้า decision เป็น rebut ให้ edits เป็น [] ได้ original ต้องสั้นพอที่จะพบในต้นฉบับ (ไม่เกิน 1 ย่อหน้า) และต้องตรงตัวอักษร`;
+ถ้า decision เป็น rebut ให้ edits เป็น [] ได้ original ต้องสั้นพอที่จะพบในต้นฉบับ (ไม่เกิน 1 ย่อหน้า) และต้องตรงตัวอักษร ถ้าหลายข้อแก้ข้อความเดียวกัน ให้ข้อหลังใช้ข้อความที่แก้แล้วของข้อก่อนเป็นพื้นฐาน`;
 }
-function jrApplyEdit(ed){
-  let ms=JR.ms; const rev=String(ed.revised||"").trim(); if(!rev) return false;
-  if(ed.original&&ed.original.trim()){ const o=ed.original.trim(); const i=jrClean(ms)===ms?ms.indexOf(o):ms.indexOf(o);
-    if(i<0) return false; JR.ms=ms.slice(0,i)+JR_OPEN+rev+JR_CLOSE+ms.slice(i+o.length); return true; }
-  if(ed.anchor&&ed.anchor.trim()){ const a=ed.anchor.trim(); const i=ms.indexOf(a); if(i<0) return false; const j=i+a.length; JR.ms=ms.slice(0,j)+" "+JR_OPEN+rev+JR_CLOSE+ms.slice(j); return true; }
-  return false;
-}
-function jrViewHTML(t){ return esc(t).replace(/⟦([\s\S]*?)⟧/g,'<span class="rv">$1</span>'); }
 async function jrAI(prompt,btn,json=true){
   if(!S.sample){ toast("ยังไม่ได้เชื่อม AI ตั้งค่าที่เมนูตั้งค่าผู้ช่วย AI"); return null; }
   const lab=btn?btn.textContent:""; if(btn){ btn.disabled=true; btn.textContent="กำลังทำงาน…"; }
@@ -2066,11 +2104,33 @@ async function jrAI(prompt,btn,json=true){
   catch(e){ toast(ERR[e&&e.code]||ERR.upstream_error); return null; }
   finally{ if(btn){ btn.disabled=false; btn.textContent=lab; } }
 }
-async function jrLoadFile(inp,cb){ const f=inp.files&&inp.files[0]; if(!f) return; try{ const t=await readFile(f); cb(String(t||"").replace(/\r/g,"").trim()); toast("อ่านไฟล์แล้ว"); }catch(e){ toast("อ่านไฟล์ไม่สำเร็จ: "+(e.message||"")); } inp.value=""; }
+/* อ่านไฟล์ผู้ประเมิน: เนื้อความ + ความคิดเห็น (Comments) + การแก้ไขแบบติดตาม (Track changes) ใน .docx */
+const xmlText=s=>String(s).replace(/<w:tab\/>/g,"\t").replace(/<w:br\/>/g,"\n").replace(/<[^>]+>/g,"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");
+async function jrReadReviewerFile(f){
+  const ext=(f.name.split(".").pop()||"").toLowerCase(); const body=String(await readFile(f)||"").replace(/\r/g,"").trim();
+  if(ext!=="docx") return {text:body,comments:0,changes:0};
+  await loadLib("jszip"); const zip=await JSZip.loadAsync(await f.arrayBuffer());
+  const docXml=zip.file("word/document.xml")?await zip.file("word/document.xml").async("string"):""; const cmXml=zip.file("word/comments.xml")?await zip.file("word/comments.xml").async("string"):"";
+  const cm={}; for(const m of cmXml.matchAll(/<w:comment\b([^>]*)>([\s\S]*?)<\/w:comment>/g)){ const id=(m[1].match(/w:id="([^"]+)"/)||[])[1]; const au=(m[1].match(/w:author="([^"]*)"/)||[])[1]||""; const txt=m[2].split(/<\/w:p>/).map(p=>xmlText(p)).filter(x=>x.trim()).join(" "); if(id!=null) cm[id]={author:xmlText(au),text:txt.trim(),anchor:""}; }
+  const active=new Set(); const changes=[]; let mode=null, buf="";
+  for(const t of docXml.matchAll(/<w:commentRangeStart\b[^>]*w:id="([^"]+)"[^>]*\/>|<w:commentRangeEnd\b[^>]*w:id="([^"]+)"[^>]*\/>|<w:(ins|del)\b[^>]*>|<\/w:(ins|del)>|<w:(?:t|delText)(?:\s[^>]*)?>([^<]*)<\/w:(?:t|delText)>|<\/w:p>/g)){
+    if(t[1]!=null){ active.add(t[1]); continue; } if(t[2]!=null){ active.delete(t[2]); continue; }
+    if(t[3]){ mode=t[3]; buf=""; continue; } if(t[4]){ if(buf.trim()) changes.push({type:t[4],text:xmlText(buf).trim()}); mode=null; buf=""; continue; }
+    if(t[5]!=null){ const s=t[5]; active.forEach(id=>{ if(cm[id]) cm[id].anchor+=xmlText(s); }); if(mode) buf+=s; continue; }
+    active.forEach(id=>{ if(cm[id]) cm[id].anchor+=" "; });
+  }
+  const list=Object.values(cm).filter(c=>c.text);
+  let out=body;
+  if(list.length) out+=`\n\n===== ความคิดเห็นในไฟล์ (Comments) ${list.length} รายการ =====\n`+list.map((c,i)=>`${i+1}) ${c.anchor.trim()?`ตรงข้อความ "${clip(c.anchor.trim().replace(/\s+/g," "),240)}": `:""}${c.text}`).join("\n");
+  if(changes.length) out+=`\n\n===== การแก้ไขที่ผู้ประเมินทำในไฟล์ (Track changes) ${changes.length} รายการ =====\n`+changes.slice(0,200).map((c,i)=>`${i+1}) ${c.type==="del"?"ลบ":"เพิ่ม"}: "${clip(c.text,240)}"`).join("\n");
+  return {text:out,comments:list.length,changes:changes.length};
+}
+async function jrLoadFile(inp,cb){ const f=inp.files&&inp.files[0]; if(!f) return; try{ const t=await readFile(f); cb(String(t||"").replace(/\r/g,"").trim(),f); toast("อ่านไฟล์แล้ว"); }catch(e){ toast("อ่านไฟล์ไม่สำเร็จ: "+(e.message||"")); } inp.value=""; }
 function vJrev(){
   JR=jrGet(); const M=$("#main"); const st=JR.step;
   const done=[!!JR.ms.trim(),JR.items.length>0,JR.items.some(x=>x.result),!!JR.check,false];
   const stepsHTML=`<nav class="jr-steps" aria-label="ขั้นตอน">${JR_STEPS.map(([l],i)=>`<button type="button" data-step="${i+1}" ${st===i+1?'aria-current="step"':""}><b>ขั้นที่ ${i+1} ${done[i]?'<span class="ok">✓</span>':""}</b>${l}</button>`).join("")}</nav>`;
+  const rvBadge=k=>`<span class="jr-tag" style="color:${JR_COLOR[k||"0"].css};background:${JR_COLOR[k||"0"].bg}">${esc(jrRvName(k))}</span>`;
   let body="";
   if(st===1) body=`<div class="panel"><div class="grid2">
       <label class="f">ชื่อวารสาร<input type="text" id="jrJ" value="${esc(JR.journal)}" placeholder="เช่น วารสารพยาบาลสาธารณสุข"></label>
@@ -2083,41 +2143,48 @@ function vJrev(){
     <textarea class="jr-ta" id="jrMs" placeholder="วางเนื้อหาบทความทั้งหมด (ชื่อเรื่อง บทคัดย่อ บทนำ วิธีการ ผล อภิปราย สรุป เอกสารอ้างอิง)">${esc(JR.ms0||jrClean(JR.ms))}</textarea>
     ${JR.items.some(x=>x.applied)?`<p class="small" style="color:#B3261E">มีการนำการแก้ไขไปใช้แล้ว ถ้าแก้ข้อความตรงนี้ ระบบจะเริ่มต้นฉบับใหม่และล้างการแก้ไขที่นำไปใช้</p>`:""}
     <div class="row" style="margin-top:10px"><button class="btn pri" type="button" id="jrNext1">บันทึกและไปขั้นต่อไป</button></div>`;
-  if(st===2) body=`<p class="lead" style="margin-top:0">วางข้อเสนอแนะจากผู้ประเมินทุกท่านและบรรณาธิการ (คัดลอกจากอีเมลหรือแบบประเมินได้ทั้งหมด) แล้วให้ระบบแยกเป็นรายข้อ</p>
-    <div class="row" style="margin:0 0 8px"><label class="btn">อัปโหลดไฟล์ข้อเสนอแนะ<input type="file" id="jrCmF" accept=".docx,.pdf,.txt,.md" hidden></label></div>
-    <textarea class="jr-ta" id="jrCm" placeholder="เช่น ผู้ประเมินท่านที่ 1: 1) ควรระบุเกณฑ์การคัดเข้า... ผู้ประเมินท่านที่ 2: ...">${esc(JR.comments)}</textarea>
+  if(st===2){ const groups=JR_RV.map(([k])=>[k,JR.items.filter(x=>x.rv===k)]).filter(g=>g[1].length);
+    body=`<p class="lead" style="margin-top:0">อัปโหลดไฟล์ข้อเสนอแนะแยกตามผู้ทรงคุณวุฒิแต่ละท่าน (.docx .pdf .txt) หรือวางข้อความ ไฟล์ Word ที่ผู้ประเมินใส่ <b>ความคิดเห็น (Comment)</b> หรือ <b>แก้ไขแบบติดตาม (Track changes)</b> ไว้ในต้นฉบับ ระบบจะดึงความคิดเห็นพร้อมข้อความที่ถูกระบุมาให้ด้วย</p>
+    <div class="jr-rvgrid">${JR_RV.map(([k,l])=>{ const f=JR.rvFile[k]; return `<div class="jr-rvcard" style="border-top:4px solid ${JR_COLOR[k].css}"><header><b style="color:${JR_COLOR[k].css}">${l}</b><span class="small muted">สี${JR_COLOR[k].name}</span></header>
+      <div class="row" style="margin:6px 0"><label class="btn">อัปโหลดไฟล์<input type="file" data-rvf="${k}" accept=".docx,.pdf,.txt,.md" hidden></label>${JR.rv[k]?`<button class="btn ghost" type="button" data-rvclr="${k}">ล้าง</button>`:""}</div>
+      ${f?`<p class="small muted" style="margin:0 0 6px">📄 ${esc(f.name)}${f.comments?` · ความคิดเห็น ${f.comments} รายการ`:""}${f.changes?` · Track changes ${f.changes} จุด`:""}</p>`:""}
+      <textarea data-rvt="${k}" rows="6" placeholder="หรือวางข้อเสนอแนะของ${l.replace(" (ถ้ามี)","")}">${esc(JR.rv[k]||"")}</textarea></div>`; }).join("")}</div>
     <label class="f" style="margin-top:10px">ข้อมูลเพิ่มเติมจากผู้นิพนธ์ (ถ้ามี)<span class="h">ข้อมูลจริงที่ใช้ตอบข้อเสนอแนะได้ เช่น ค่าความเชื่อมั่นของเครื่องมือ เลขรับรองจริยธรรม เอกสารอ้างอิงที่จะเพิ่ม</span><textarea class="jr-ta sm" id="jrAuthor">${esc(JR.author)}</textarea></label>
-    <div class="row" style="margin-top:10px"><button class="btn pri" type="button" id="jrSplit">แยกข้อเสนอแนะเป็นรายข้อ</button>${JR.items.length?`<span class="small muted">มี ${JR.items.length} ข้อแล้ว การแยกใหม่จะแทนที่รายการเดิม</span>`:""}</div>
-    ${JR.items.length?`<h2>รายการข้อเสนอแนะ (${JR.items.length} ข้อ)</h2>${JR.items.map((x,i)=>`<div class="jr-item"><header><b>${esc(x.id)}</b><span class="jr-tag">${esc(x.reviewer||"")}</span><span class="jr-tag ${x.level==="major"?"major":"minor"}">${x.level==="major"?"ประเด็นหลัก":"ประเด็นย่อย"}</span><span class="jr-tag">${esc(x.type||"")}</span>
-      <label style="margin-left:auto;font-size:13px">แนวทาง <select data-dec="${i}"><option value="auto" ${!x.decision||x.decision==="auto"?"selected":""}>ให้ผู้ทรงฯ พิจารณา</option>${Object.entries(JR_DEC).map(([k,v])=>`<option value="${k}" ${x.decision===k?"selected":""}>${v}</option>`).join("")}</select></label></header>
+    <div class="row" style="margin-top:10px"><button class="btn pri" type="button" id="jrSplit">ประมวลผลข้อเสนอแนะของทุกท่าน</button>${JR.items.length?`<span class="small muted">มี ${JR.items.length} ข้อแล้ว การประมวลผลใหม่จะแทนที่รายการเดิม</span>`:""}</div>
+    ${JR.items.length?`<h2>รายการข้อเสนอแนะ (${JR.items.length} ข้อ)</h2>${groups.map(([k,list])=>`<h3 style="color:${JR_COLOR[k].css};margin:14px 0 6px">${esc(jrRvName(k))} · ${list.length} ข้อ</h3>${list.map(x=>{ const i=JR.items.indexOf(x); return `<div class="jr-item" style="border-left:4px solid ${JR_COLOR[k].css}"><header><b>${esc(x.id)}</b><span class="jr-tag ${x.level==="major"?"major":"minor"}">${x.level==="major"?"ประเด็นหลัก":"ประเด็นย่อย"}</span><span class="jr-tag">${esc(x.type||"")}</span>
+      <label style="margin-left:auto;font-size:13px">แนวทาง <select data-dec="${i}"><option value="auto" ${!x.decision||x.decision==="auto"?"selected":""}>ให้ผู้ทรงฯ พิจารณา</option>${Object.entries(JR_DEC).map(([kk,v])=>`<option value="${kk}" ${x.decision===kk?"selected":""}>${v}</option>`).join("")}</select></label></header>
+      ${x.anchor?`<p class="small muted" style="margin:0 0 4px">ตรงข้อความ: “${esc(clip(x.anchor,200))}”</p>`:""}
       <textarea data-cm="${i}" rows="2">${esc(x.comment)}</textarea>
-      <textarea data-note="${i}" rows="1" placeholder="ข้อมูลหรือความเห็นของผู้นิพนธ์สำหรับข้อนี้ (ถ้ามี)" style="margin-top:6px">${esc(x.note||"")}</textarea></div>`).join("")}
-      <div class="row"><button class="btn pri" type="button" id="jrNext2">ไปขั้นแก้ไข</button></div>`:""}`;
+      <textarea data-note="${i}" rows="1" placeholder="ข้อมูลหรือความเห็นของผู้นิพนธ์สำหรับข้อนี้ (ถ้ามี)" style="margin-top:6px">${esc(x.note||"")}</textarea></div>`; }).join("")}`).join("")}
+      <div class="row"><button class="btn pri" type="button" id="jrNext2">ไปขั้นแก้ไข</button></div>`:""}`; }
   if(st===3){ const n=JR.items.length, r=JR.items.filter(x=>x.result).length, a=JR.items.filter(x=>x.applied).length;
     body=!n?`<div class="panel muted">ยังไม่มีรายการข้อเสนอแนะ กลับไปขั้นที่ 2</div>`:`<div class="row" style="margin:0 0 12px"><button class="btn pri" type="button" id="jrAll">ให้ผู้ทรงฯ แก้ไขทุกข้อที่ยังไม่แก้ (${n-r})</button><button class="btn" type="button" id="jrApplyAll">นำการแก้ไขทั้งหมดไปใช้ในต้นฉบับ</button><span class="small muted">ร่างแล้ว ${r}/${n} · นำไปใช้แล้ว ${a}/${n}</span></div>
-    ${JR.items.map((x,i)=>{ const R=x.result; return `<div class="jr-item"><header><b>${esc(x.id)}</b><span class="jr-tag ${x.level==="major"?"major":"minor"}">${x.level==="major"?"ประเด็นหลัก":"ประเด็นย่อย"}</span>${R?`<span class="jr-tag">${esc(JR_DEC[R.decision]||"")}</span>`:""}${x.applied?'<span class="jr-tag done">นำไปใช้แล้ว</span>':""}${R&&R.location?`<span class="small muted">ตำแหน่ง: ${esc(R.location)}</span>`:""}
+    ${JR.items.map((x,i)=>{ const R=x.result; const c=JR_COLOR[x.rv||"0"]; return `<div class="jr-item" style="border-left:4px solid ${c.css}"><header><b>${esc(x.id)}</b>${rvBadge(x.rv)}<span class="jr-tag ${x.level==="major"?"major":"minor"}">${x.level==="major"?"ประเด็นหลัก":"ประเด็นย่อย"}</span>${R?`<span class="jr-tag">${esc(JR_DEC[R.decision]||"")}</span>`:""}${x.applied?'<span class="jr-tag done">นำไปใช้แล้ว</span>':""}${R&&R.location?`<span class="small muted">ตำแหน่ง: ${esc(R.location)}</span>`:""}
       <button class="btn ghost" type="button" data-one="${i}" style="margin-left:auto">${R?"ร่างใหม่":"แก้ข้อนี้"}</button></header>
       <div class="cm">${esc(x.comment)}</div>
-      ${R?`${(R.edits||[]).map((e,k)=>`<div class="jr-cmp"><div class="o"><small>${e.original?"ข้อความเดิม":"แทรกต่อจาก"}</small>${esc(e.original||e.anchor||"-")}</div><div class="n"><small>ข้อความที่แก้</small>${e.original?diffHTML(e.original,e.revised||""):esc(e.revised||"")}</div></div>${e.miss?`<p class="small" style="color:#B3261E">หาข้อความเดิมในต้นฉบับไม่พบ คัดลอกข้อความที่แก้ไปวางในต้นฉบับเอง</p>`:""}`).join("")}
+      ${R?`${(R.edits||[]).map(e=>`<div class="jr-cmp"><div class="o"><small>${e.original?"ข้อความเดิม":"แทรกต่อจาก"}</small>${esc(e.original||e.anchor||"-")}</div><div class="n"><small>ข้อความที่แก้</small>${e.original?diffHTML(e.original,e.revised||""):esc(e.revised||"")}</div></div>${e.miss?`<p class="small" style="color:#B3261E">หาข้อความเดิมในต้นฉบับไม่พบ คัดลอกข้อความที่แก้ไปวางในต้นฉบับเอง</p>`:""}`).join("")}
         <label class="f" style="margin-top:6px">คำตอบถึงผู้ประเมิน<textarea data-resp="${i}" rows="3">${esc(R.response||"")}</textarea></label>
         ${(R.needs||[]).filter(Boolean).length?`<div class="note" style="margin-top:6px"><b>ผู้นิพนธ์ต้องทำเพิ่ม:</b> ${R.needs.filter(Boolean).map(esc).join(" · ")}</div>`:""}
         ${(R.edits||[]).length&&!x.applied?`<div class="row" style="margin-top:6px"><button class="btn" type="button" data-apply="${i}">นำไปใช้ในต้นฉบับ</button></div>`:""}`:""}</div>`; }).join("")}
-    <h2>ต้นฉบับฉบับแก้ไข</h2><p class="small muted" style="margin-top:0">ข้อความสีแดงคือส่วนที่แก้ไข จะเป็นตัวอักษรสีแดงในไฟล์ Word</p><div class="jr-view">${jrViewHTML(JR.ms)}</div>
-    <details style="margin-top:8px"><summary class="small">แก้ต้นฉบับฉบับแก้ไขด้วยตนเอง</summary><p class="small muted">ข้อความระหว่าง ⟦ และ ⟧ คือส่วนที่แก้ (จะเป็นสีแดง) ลบหรือเพิ่มเครื่องหมายได้</p><textarea class="jr-ta" id="jrMsEdit">${esc(JR.ms)}</textarea><div class="row"><button class="btn" type="button" id="jrMsSave">บันทึกการแก้ไขต้นฉบับ</button></div></details>`; }
+    <h2>ต้นฉบับฉบับแก้ไข</h2>${jrLegendHTML()}<p class="small muted" style="margin-top:0">สีบอกว่าแก้ตามข้อเสนอแนะของผู้ทรงคุณวุฒิท่านใด ตัวเลขยกกำลังคือรหัสข้อ ชี้เมาส์เพื่อดูรายละเอียด</p><div class="jr-view">${jrViewHTML(JR.ms)}</div>
+    <details style="margin-top:8px"><summary class="small">แก้ต้นฉบับฉบับแก้ไขด้วยตนเอง</summary><p class="small muted">ส่วนที่แก้อยู่ในรูป ⟦รหัสข้อ|ข้อความ⟧ เช่น ⟦R2-1|ข้อความที่แก้⟧ ลบหรือเพิ่มเครื่องหมายได้</p><textarea class="jr-ta" id="jrMsEdit">${esc(JR.ms)}</textarea><div class="row"><button class="btn" type="button" id="jrMsSave">บันทึกการแก้ไขต้นฉบับ</button></div></details>`; }
   if(st===4){ const C=JR.check;
-    body=`<p class="lead" style="margin-top:0">ให้ผู้ทรงคุณวุฒิตรวจต้นฉบับฉบับแก้ไขอีกรอบ ว่าตอบข้อเสนอแนะครบทุกข้อ ข้อมูลสอดคล้องกันทั้งบทความ และเป็นไปตามข้อกำหนดของวารสาร</p>
+    body=`<p class="lead" style="margin-top:0">ให้ผู้ทรงคุณวุฒิตรวจต้นฉบับฉบับแก้ไขอีกรอบ ว่าตอบข้อเสนอแนะของทุกท่านครบ ข้อมูลสอดคล้องกันทั้งบทความ และเป็นไปตามข้อกำหนดของวารสาร</p>
     <div class="row"><button class="btn pri" type="button" id="jrCheck">ตรวจความสมบูรณ์ก่อนส่งกลับวารสาร</button></div>
     ${C?`<div class="panel" style="margin-top:12px"><p style="margin-top:0"><b>ความพร้อมในการส่งกลับ:</b> <span class="jr-tag ${C.ready?"done":"major"}">${C.ready?"พร้อมส่ง":"ยังต้องแก้เพิ่ม"}</span> ${esc(C.summary||"")}</p>
-      <h3>ตอบข้อเสนอแนะครบหรือไม่</h3><ul class="jr-check">${(C.coverage||[]).map(c=>`<li><b>${esc(c.id)}</b> ${c.ok?"✅":"⚠️"} ${esc(c.comment||"")}</li>`).join("")}</ul>
-      ${(C.consistency||[]).length?`<h3>ความสอดคล้องภายในบทความ</h3><ul class="jr-check">${C.consistency.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      <h3>ตอบข้อเสนอแนะครบหรือไม่</h3><ul class="jr-check">${(C.coverage||[]).map(c=>`<li><b style="color:${JR_COLOR[jrRvOf(c.id)].css}">${esc(c.id)}</b> ${c.ok?"✅":"⚠️"} ${esc(c.comment||"")}</li>`).join("")}</ul>
+      ${(C.consistency||[]).length?`<h3>ความสอดคล้องภายในบทความและระหว่างข้อเสนอแนะของแต่ละท่าน</h3><ul class="jr-check">${C.consistency.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
       ${(C.guideline||[]).length?`<h3>ข้อกำหนดวารสารและรูปแบบ</h3><ul class="jr-check">${C.guideline.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
       ${(C.placeholders||[]).length?`<h3>จุดที่ผู้นิพนธ์ต้องเติมข้อมูลจริง</h3><ul class="jr-check">${C.placeholders.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}</div>`:""}`; }
-  if(st===5) body=`<div class="panel"><h3 style="margin-top:0">1. ตารางชี้แจงการแก้ไข (Response to Reviewers)</h3><p class="small muted">ข้อเสนอแนะ | การแก้ไข/คำชี้แจง | ตำแหน่งที่แก้ เรียงตามผู้ประเมิน</p><div class="row"><button class="btn pri" type="button" id="jrDocResp">ดาวน์โหลด Word</button><button class="btn ghost" type="button" id="jrCpResp">คัดลอกเป็นข้อความ</button></div></div>
-    <div class="panel"><h3 style="margin-top:0">2. ต้นฉบับฉบับแก้ไข (ส่วนที่แก้เป็นตัวอักษรสีแดง)</h3><div class="row"><button class="btn pri" type="button" id="jrDocMs">ดาวน์โหลด Word (มีสีแดง)</button><button class="btn" type="button" id="jrDocClean">ดาวน์โหลด Word (ฉบับสะอาด)</button><button class="btn ghost" type="button" id="jrCpMs">คัดลอกฉบับสะอาด</button></div></div>
+  if(st===5) body=`<div class="panel"><h3 style="margin-top:0">1. ต้นฉบับฉบับแก้ไข แยกสีตามผู้ทรงคุณวุฒิ</h3>${jrLegendHTML()}
+      <div class="row" style="margin:8px 0"><label>รูปแบบการแยก <select id="jrExColor"><option value="text" ${JR.exColor==="text"?"selected":""}>สีตัวอักษร</option><option value="hl" ${JR.exColor==="hl"?"selected":""}>ไฮไลต์พื้นหลัง</option><option value="both" ${JR.exColor==="both"?"selected":""}>สีตัวอักษร + ไฮไลต์</option></select></label><label><input type="checkbox" id="jrExTag" ${JR.exTag?"checked":""}> ใส่รหัสข้อท้ายข้อความที่แก้ เช่น [R2-1]</label></div>
+      <p class="small muted" style="margin:0 0 8px">ไฟล์ Word มีคำอธิบายสีไว้ที่หัวเอกสาร ${JR_RV.map(([k,l])=>`${l.replace(" (ถ้ามี)","")}: ตัวอักษรสี${JR_COLOR[k].name} / ไฮไลต์สี${JR_COLOR[k].hlName}`).join(" · ")}</p>
+      <div class="row"><button class="btn pri" type="button" id="jrDocMs">ดาวน์โหลด Word (แยกสีตามผู้ทรงฯ)</button><button class="btn" type="button" id="jrDocRed">ดาวน์โหลด Word (สีแดงสีเดียว)</button><button class="btn" type="button" id="jrDocClean">ดาวน์โหลด Word (ฉบับสะอาด)</button><button class="btn ghost" type="button" id="jrCpMs">คัดลอกฉบับสะอาด</button></div></div>
+    <div class="panel"><h3 style="margin-top:0">2. ตารางชี้แจงการแก้ไข (Response to Reviewers)</h3><p class="small muted">แยกตารางตามผู้ทรงคุณวุฒิแต่ละท่าน: ข้อเสนอแนะ | การแก้ไข/คำชี้แจง | ตำแหน่งที่แก้</p><div class="row"><button class="btn pri" type="button" id="jrDocResp">ดาวน์โหลด Word (ทุกท่าน)</button>${JR_RV.filter(([k])=>JR.items.some(x=>x.rv===k)).map(([k,l])=>`<button class="btn" type="button" data-resp1="${k}">เฉพาะ${l.replace(" (ถ้ามี)","")}</button>`).join("")}<button class="btn ghost" type="button" id="jrCpResp">คัดลอกเป็นข้อความ</button></div></div>
     <div class="panel"><h3 style="margin-top:0">3. จดหมายนำส่งต้นฉบับฉบับแก้ไขถึงบรรณาธิการ</h3><div class="row"><button class="btn" type="button" id="jrLetter">${JR.letter?"ร่างใหม่":"ร่างจดหมาย"}</button>${JR.letter?`<button class="btn ghost" type="button" id="jrCpLetter">คัดลอก</button><button class="btn ghost" type="button" id="jrDocLetter">ดาวน์โหลด Word</button>`:""}</div>${JR.letter?`<textarea class="jr-ta sm" id="jrLetterT" style="margin-top:8px">${esc(JR.letter)}</textarea>`:""}</div>
     <div class="row" style="margin-top:6px"><button class="btn ghost" type="button" id="jrReset">เริ่มบทความใหม่ (ล้างข้อมูลในหน้านี้)</button></div>`;
   M.innerHTML=`<h1>แก้ไขบทความตามข้อเสนอแนะผู้ทรงคุณวุฒิวารสาร</h1>
-   <p class="lead">ผู้ทรงคุณวุฒิช่วยแก้ต้นฉบับให้ตรงกับข้อเสนอแนะของผู้ประเมินทีละข้อ ร่างคำชี้แจง ตรวจความสมบูรณ์ และส่งออกตารางชี้แจงการแก้ไข ต้นฉบับฉบับแก้ไข (สีแดง) และจดหมายถึงบรรณาธิการ</p>
+   <p class="lead">อัปโหลดข้อเสนอแนะของผู้ทรงคุณวุฒิท่านที่ 1–3 ผู้ทรงฯ จะแก้ต้นฉบับให้ตรงและสอดคล้องกับข้อเสนอแนะทุกข้อ ร่างคำชี้แจง ตรวจความสมบูรณ์ และส่งออกต้นฉบับที่แยกสีตามผู้ทรงคุณวุฒิแต่ละท่าน พร้อมตารางชี้แจงและจดหมายถึงบรรณาธิการ</p>
    ${stepsHTML}${body}
    <div class="note" style="margin-top:14px">ผู้ช่วยจะไม่แต่งข้อมูล ผลการวิจัย หรือเอกสารอ้างอิงขึ้นเอง จุดที่ต้องใช้ข้อมูลจริงจะติดป้าย [ต้องเพิ่มข้อมูลจริง] หรือ [ต้องหาแหล่งอ้างอิง] ผู้นิพนธ์ต้องตรวจทุกการแก้ไขก่อนส่งกลับวารสาร ข้อมูลในหน้านี้บันทึกไว้ในเบราว์เซอร์เครื่องนี้</div>`;
   jrBind();
@@ -2132,31 +2199,40 @@ function jrBind(){
     $("#jrNext1").onclick=()=>{ jrCollect(); if(!JR.ms.trim()){ toast("ใส่ต้นฉบับก่อน"); return; } JR.step=2; jrSave(); vJrev(); };
   }
   if(st===2){
-    $("#jrCmF").onchange=e=>jrLoadFile(e.target,t=>{ $("#jrCm").value=t; });
-    $("#jrSplit").onclick=async e=>{ jrCollect(); if(!JR.comments.trim()){ toast("วางข้อเสนอแนะก่อน"); return; }
-      const j=await jrAI(`แยกข้อเสนอแนะของผู้ประเมินบทความวารสารต่อไปนี้ออกเป็นรายข้อ คงถ้อยคำเดิมของผู้ประเมินไว้ให้มากที่สุด ไม่สรุปย่อจนความหมายเปลี่ยน ข้อที่มีหลายประเด็นให้แยกเป็นข้อย่อย ข้อความทักทายหรือคำชมที่ไม่ต้องแก้ไม่ต้องใส่
-ตอบเป็น JSON: {"items":[{"id":"R1-1 (ผู้ประเมินท่านที่ 1 ข้อ 1) หรือ E-1 สำหรับบรรณาธิการ","reviewer":"ผู้ประเมินท่านที่ 1","comment":"ข้อเสนอแนะ","level":"major|minor","type":"ชื่อเรื่อง|บทคัดย่อ|บทนำ|วรรณกรรม|วิธีวิจัย|เครื่องมือ|จริยธรรม|สถิติ|ผลการวิจัย|อภิปรายผล|ข้อเสนอแนะ|อ้างอิง|ภาษาและรูปแบบ"}]}
+    $$("[data-rvf]").forEach(inp=>inp.onchange=async()=>{ const k=inp.dataset.rvf, f=inp.files&&inp.files[0]; if(!f) return; jrCollect();
+      try{ toast("กำลังอ่านไฟล์…"); const r=await jrReadReviewerFile(f); JR.rv[k]=r.text; JR.rvFile[k]={name:f.name,comments:r.comments,changes:r.changes}; jrSave(); vJrev(); toast(`อ่านไฟล์${jrRvName(k)}แล้ว${r.comments?` พบความคิดเห็น ${r.comments} รายการ`:""}`); }
+      catch(e){ toast("อ่านไฟล์ไม่สำเร็จ: "+(e.message||"")); } inp.value=""; });
+    $$("[data-rvclr]").forEach(b=>b.onclick=()=>{ jrCollect(); const k=b.dataset.rvclr; JR.rv[k]=""; delete JR.rvFile[k]; jrSave(); vJrev(); });
+    $("#jrSplit").onclick=async e=>{ jrCollect(); const slots=JR_RV.filter(([k])=>String(JR.rv[k]||"").trim()); if(!slots.length){ toast("อัปโหลดไฟล์หรือวางข้อเสนอแนะอย่างน้อย 1 ท่าน"); return; }
+      const btn=e.target; const all=[]; let ok=true;
+      for(const [k,l,pre] of slots){ btn.textContent=`กำลังประมวลผล${l.replace(" (ถ้ามี)","")}…`;
+        const j=await jrAI(`แยกข้อเสนอแนะของ${l.replace(" (ถ้ามี)","")}ต่อบทความวารสารต่อไปนี้ออกเป็นรายข้อ คงถ้อยคำเดิมของผู้ประเมินไว้ให้มากที่สุด ไม่สรุปย่อจนความหมายเปลี่ยน ข้อที่มีหลายประเด็นให้แยกเป็นข้อย่อย ข้อความทักทาย คำชม หรือข้อความทั่วไปที่ไม่ต้องแก้ไม่ต้องใส่
+ข้อมูลอาจมีทั้งความเห็นทั่วไป ความคิดเห็น (Comments) ที่ผูกกับข้อความในต้นฉบับ และการแก้ไขแบบติดตาม (Track changes) ให้รวมทุกแหล่ง ความคิดเห็นที่ระบุข้อความในต้นฉบับ ให้ใส่ข้อความนั้นใน anchor การแก้ไขแบบติดตามที่เป็นการแก้คำหรือภาษาเล็กน้อยหลายจุด ให้รวมเป็นข้อเดียวต่อย่อหน้าได้
+ตอบเป็น JSON: {"items":[{"id":"${pre}-1, ${pre}-2, ... เรียงตามลำดับ","comment":"ข้อเสนอแนะ","anchor":"ข้อความในต้นฉบับที่ผู้ประเมินระบุ ถ้ามี","level":"major|minor","type":"ชื่อเรื่อง|บทคัดย่อ|บทนำ|วรรณกรรม|วิธีวิจัย|เครื่องมือ|จริยธรรม|สถิติ|ผลการวิจัย|อภิปรายผล|ข้อเสนอแนะ|อ้างอิง|ภาษาและรูปแบบ"}]}
 
-ข้อเสนอแนะ:
+ข้อเสนอแนะของ${l.replace(" (ถ้ามี)","")}:
 """
-${clip(JR.comments,30000)}
-"""`,e.target);
-      if(!j) return; JR.items=(j.items||[]).filter(x=>x&&x.comment).map((x,i)=>({id:String(x.id||`C-${i+1}`),reviewer:x.reviewer||"",comment:String(x.comment),level:x.level==="major"?"major":"minor",type:x.type||"",decision:"auto",note:""}));
-      JR.check=null; jrSave(); vJrev(); toast(`แยกได้ ${JR.items.length} ข้อ`); };
+${clip(JR.rv[k],40000)}
+"""`,null);
+        if(!j){ ok=false; break; }
+        (j.items||[]).filter(x=>x&&x.comment).forEach((x,i)=>{ let id=String(x.id||"").trim(); if(!new RegExp("^"+pre+"-\\d+$").test(id)) id=`${pre}-${i+1}`; all.push({id,rv:k,reviewer:jrRvName(k),comment:String(x.comment),anchor:String(x.anchor||"").trim(),level:x.level==="major"?"major":"minor",type:x.type||"",decision:"auto",note:""}); });
+      }
+      btn.textContent="ประมวลผลข้อเสนอแนะของทุกท่าน"; if(!ok&&!all.length) return;
+      JR.items=all; JR.check=null; jrSave(); vJrev(); toast(`ได้ข้อเสนอแนะ ${all.length} ข้อ จาก ${slots.length} ท่าน`); };
     $$("[data-dec]").forEach(s=>s.onchange=()=>{ JR.items[+s.dataset.dec].decision=s.value; jrSave(); });
     $$("[data-cm]").forEach(t=>t.onchange=()=>{ JR.items[+t.dataset.cm].comment=t.value; jrSave(); });
     $$("[data-note]").forEach(t=>t.onchange=()=>{ JR.items[+t.dataset.note].note=t.value; jrSave(); });
     if($("#jrNext2")) $("#jrNext2").onclick=()=>{ jrCollect(); JR.step=3; jrSave(); vJrev(); };
   }
   if(st===3 && JR.items.length){
-    const run=async(idx,btn)=>{ const items=idx.map(i=>JR.items[i]); const j=await jrAI(jrPromptAll(items),btn); if(!j) return;
+    const run=async(idx,btn)=>{ const items=idx.map(i=>JR.items[i]); const j=await jrAI(jrPromptAll(items),btn); if(!j) return false;
       (j.items||[]).forEach(r=>{ const it=JR.items.find(x=>x.id===String(r.id)); if(it){ it.result={decision:r.decision||"accept",location:r.location||"",edits:(r.edits||[]).filter(e=>e&&(e.revised||"").trim()),response:r.response||"",needs:r.needs||[]}; it.applied=false; } });
-      jrSave(); vJrev(); };
-    $("#jrAll").onclick=e=>{ const idx=JR.items.map((x,i)=>i).filter(i=>!JR.items[i].result); if(!idx.length){ toast("ร่างครบทุกข้อแล้ว กดร่างใหม่รายข้อได้"); return; }
-      const chunks=[]; for(let k=0;k<idx.length;k+=6) chunks.push(idx.slice(k,k+6)); (async()=>{ for(const c of chunks){ await run(c,$("#jrAll")); } })(); };
-    $$("[data-one]").forEach(b=>b.onclick=()=>run([+b.dataset.one],b));
+      jrSave(); return true; };
+    $("#jrAll").onclick=async e=>{ const idx=JR.items.map((x,i)=>i).filter(i=>!JR.items[i].result); if(!idx.length){ toast("ร่างครบทุกข้อแล้ว กดร่างใหม่รายข้อได้"); return; }
+      const b=e.target; for(let k=0;k<idx.length;k+=6){ b.textContent=`กำลังแก้ไข ${Math.min(k+6,idx.length)}/${idx.length}…`; if(!await run(idx.slice(k,k+6),null)) break; } vJrev(); };
+    $$("[data-one]").forEach(b=>b.onclick=async()=>{ if(await run([+b.dataset.one],b)) vJrev(); });
     $$("[data-resp]").forEach(t=>t.onchange=()=>{ JR.items[+t.dataset.resp].result.response=t.value; jrSave(); });
-    const apply=i=>{ const it=JR.items[i]; let ok=0; (it.result.edits||[]).forEach(e=>{ e.miss=!jrApplyEdit(e); if(!e.miss) ok++; }); it.applied=ok>0||!(it.result.edits||[]).length; return ok; };
+    const apply=i=>{ const it=JR.items[i]; let ok=0; (it.result.edits||[]).forEach(e=>{ e.miss=!jrApplyEdit(e,it.id); if(!e.miss) ok++; }); it.applied=ok>0||!(it.result.edits||[]).length; return ok; };
     $$("[data-apply]").forEach(b=>b.onclick=()=>{ const n=apply(+b.dataset.apply); jrSave(); vJrev(); toast(n?`นำไปใช้ ${n} จุด`:"หาข้อความเดิมไม่พบ"); });
     $("#jrApplyAll").onclick=()=>{ let n=0; JR.items.forEach((x,i)=>{ if(x.result&&!x.applied) n+=apply(i); }); jrSave(); vJrev(); toast(`นำไปใช้ ${n} จุด`); };
     $("#jrMsSave").onclick=()=>{ JR.ms=$("#jrMsEdit").value; jrSave(); vJrev(); toast("บันทึกแล้ว"); };
@@ -2164,30 +2240,43 @@ ${clip(JR.comments,30000)}
   if(st===4){
     $("#jrCheck").onclick=async e=>{ const j=await jrAI(`${jrRules()}
 # ข้อเสนอแนะและการแก้ไขที่ทำไปแล้ว
-${JR.items.map(x=>`[${x.id}] ${x.comment}\n   การแก้/คำชี้แจง: ${x.result?x.result.response:"(ยังไม่ได้แก้)"}${x.applied?" (นำไปใช้ในต้นฉบับแล้ว)":""}`).join("\n")}
-# ต้นฉบับฉบับแก้ไข (ข้อความใน ⟦ ⟧ คือส่วนที่แก้)
+${JR.items.map(x=>`[${x.id}] ${jrRvName(x.rv)}: ${x.comment}\n   การแก้/คำชี้แจง: ${x.result?x.result.response:"(ยังไม่ได้แก้)"}${x.applied?" (นำไปใช้ในต้นฉบับแล้ว)":""}`).join("\n")}
+# ต้นฉบับฉบับแก้ไข (ข้อความใน ⟦รหัสข้อ|…⟧ คือส่วนที่แก้ตามข้อนั้น)
 """
 ${clip(JR.ms,60000)}
 """
-ตรวจต้นฉบับฉบับแก้ไขในฐานะผู้ทรงคุณวุฒิก่อนส่งกลับวารสาร: (1) ข้อเสนอแนะแต่ละข้อได้รับการแก้หรือชี้แจงครบและตรงประเด็นหรือไม่ (2) ความสอดคล้องภายในบทความ เช่น วัตถุประสงค์-วิธีการ-ผล-สรุป ตัวเลขในบทคัดย่อตรงกับผล การอ้างอิงในเนื้อหาตรงกับรายการอ้างอิง (3) ข้อกำหนดของวารสารและรูปแบบ APA 7 (4) ป้ายที่ยังต้องเติมข้อมูลจริง
+ตรวจต้นฉบับฉบับแก้ไขในฐานะผู้ทรงคุณวุฒิก่อนส่งกลับวารสาร: (1) ข้อเสนอแนะแต่ละข้อของทุกท่านได้รับการแก้หรือชี้แจงครบและตรงประเด็นหรือไม่ (2) การแก้ตามผู้ประเมินต่างท่านขัดแย้งหรือซ้ำซ้อนกันหรือไม่ และความสอดคล้องภายในบทความ เช่น วัตถุประสงค์-วิธีการ-ผล-สรุป ตัวเลขในบทคัดย่อตรงกับผล การอ้างอิงในเนื้อหาตรงกับรายการอ้างอิง (3) ข้อกำหนดของวารสารและรูปแบบ APA 7 (4) ป้ายที่ยังต้องเติมข้อมูลจริง
 ตอบ JSON: {"ready":true|false,"summary":"สรุป 1-2 ประโยค","coverage":[{"id":"","ok":true|false,"comment":""}],"consistency":["ปัญหาที่พบ"],"guideline":["ปัญหาที่พบ"],"placeholders":["จุดที่ต้องเติม"]}`,e.target);
       if(!j) return; JR.check=j; jrSave(); vJrev(); };
   }
   if(st===5){
-    const respText=()=>JR.items.map(x=>`${x.id} (${x.reviewer||"ผู้ประเมิน"})\nข้อเสนอแนะ: ${x.comment}\n${JR.lang==="en"?"Response":"การแก้ไข/คำชี้แจง"}: ${x.result?x.result.response:"[ยังไม่ได้ระบุ]"}\n${JR.lang==="en"?"Location":"ตำแหน่ง"}: ${x.result&&x.result.location||"-"}`).join("\n\n");
-    $("#jrCpResp").onclick=()=>copyText(respText());
-    $("#jrDocResp").onclick=async()=>{ const head=JR.lang==="en"?["No.","Reviewer's comment","Response / Revision","Location"]:["ข้อ","ข้อเสนอแนะของผู้ทรงคุณวุฒิ","การแก้ไข / คำชี้แจง","ตำแหน่งที่แก้"];
-      const groups={}; JR.items.forEach(x=>{ (groups[x.reviewer||"ผู้ประเมิน"] ||= []).push(x); });
+    $("#jrExColor").onchange=e=>{ JR.exColor=e.target.value; jrSave(); };
+    $("#jrExTag").onchange=e=>{ JR.exTag=e.target.checked; jrSave(); };
+    const respText=list=>list.map(x=>`${x.id} (${jrRvName(x.rv)})\nข้อเสนอแนะ: ${x.comment}\n${JR.lang==="en"?"Response":"การแก้ไข/คำชี้แจง"}: ${x.result?x.result.response:"[ยังไม่ได้ระบุ]"}\n${JR.lang==="en"?"Location":"ตำแหน่ง"}: ${x.result&&x.result.location||"-"}`).join("\n\n");
+    $("#jrCpResp").onclick=()=>copyText(respText(JR.items));
+    const respDoc=async(keys,fname)=>{ const head=JR.lang==="en"?["No.","Reviewer's comment","Response / Revision","Location"]:["ข้อ","ข้อเสนอแนะของผู้ทรงคุณวุฒิ","การแก้ไข / คำชี้แจง","ตำแหน่งที่แก้"];
       let b=P(R(JR.lang==="en"?"Response to Reviewers":"ตารางชี้แจงการแก้ไขบทความตามข้อเสนอแนะของผู้ทรงคุณวุฒิ",{b:true,sz:36}),{align:"center",after:120});
       if(JR.journal) b+=P(R((JR.lang==="en"?"Journal: ":"วารสาร: ")+JR.journal+(JR.round?` (${JR.round})`:"")),{align:"center",after:240});
-      Object.entries(groups).forEach(([g,list])=>{ b+=P(R(g,{b:true}),{align:"left",before:200,after:80}); b+=TBL([head,...list.map(x=>[x.id,x.comment,x.result?x.result.response:"[ผู้นิพนธ์ระบุการแก้ไข]",x.result&&x.result.location||"-"])],{}); });
-      await saveBlob(await jrDocx(b),"ตารางชี้แจงการแก้ไข.docx"); };
-    const msXML=red=>String(red?JR.ms:jrClean(JR.ms)).split(/\n+/).map(par=>P(par.split(/(⟦[\s\S]*?⟧)/).filter(Boolean).map(x=>/^⟦/.test(x)?R(x.slice(1,-1),{color:"FF0000"}):R(x)).join(""),{ind:720,align:"thaiDistribute"})).join("");
-    $("#jrDocMs").onclick=async()=>saveBlob(await jrDocx(msXML(true)),"ต้นฉบับฉบับแก้ไข (สีแดง).docx");
-    $("#jrDocClean").onclick=async()=>saveBlob(await jrDocx(msXML(false)),"ต้นฉบับฉบับแก้ไข.docx");
+      JR_RV.filter(([k])=>keys.includes(k)).forEach(([k])=>{ const list=JR.items.filter(x=>x.rv===k); if(!list.length) return;
+        b+=P(R(jrRvName(k),{b:true,color:JR_COLOR[k].txt,sz:34}),{align:"left",before:240,after:80});
+        b+=TBL([head,...list.map(x=>[x.id,x.comment,x.result?x.result.response:"[ผู้นิพนธ์ระบุการแก้ไข]",x.result&&x.result.location||"-"])],{}); });
+      await saveBlob(await jrDocx(b),fname); };
+    $("#jrDocResp").onclick=()=>respDoc(["1","2","3","E"],"ตารางชี้แจงการแก้ไข (ทุกท่าน).docx");
+    $$("[data-resp1]").forEach(b=>b.onclick=()=>respDoc([b.dataset.resp1],`ตารางชี้แจงการแก้ไข - ${jrRvName(b.dataset.resp1)}.docx`));
+    const msXML=mode=>{ let head="";
+      if(mode==="multi"){ head=P(R("คำอธิบายสีการแก้ไข",{b:true}),{align:"left"})+JR_RV.filter(([k])=>JR.items.some(x=>x.rv===k)).map(([k])=>{ const c=JR_COLOR[k]; const o={color:JR.exColor==="hl"?null:c.txt,hl:JR.exColor==="text"?null:c.hl,b:true}; return P(R("■ ",{color:c.txt})+R(jrRvName(k),o)+R(` = แก้ไขตามข้อเสนอแนะของ${jrRvName(k)}`),{align:"left"}); }).join("")+P("",{after:200}); }
+      const text=mode==="clean"?jrClean(JR.ms):JR.ms;
+      return head+String(text).split(/\n+/).map(par=>P(par.split(/(⟦(?:[^|⟦⟧\n]{1,20}\|)?[\s\S]*?⟧)/).filter(Boolean).map(x=>{ const m=x.match(/^⟦(?:([^|⟦⟧\n]{1,20})\|)?([\s\S]*?)⟧$/); if(!m) return R(x);
+        const id=m[1]||"", k=id?jrRvOf(id):"0", c=JR_COLOR[k];
+        if(mode==="red") return R(m[2],{color:"FF0000"});
+        const o={color:JR.exColor==="hl"?null:c.txt,hl:JR.exColor==="text"?null:c.hl};
+        return R(m[2],o)+(JR.exTag&&id?R(`[${id}]`,{color:c.txt,sup:true,b:true}):""); }).join(""),{ind:720,align:"thaiDistribute"})).join(""); };
+    $("#jrDocMs").onclick=async()=>saveBlob(await jrDocx(msXML("multi")),"ต้นฉบับฉบับแก้ไข (แยกสีตามผู้ทรงคุณวุฒิ).docx");
+    $("#jrDocRed").onclick=async()=>saveBlob(await jrDocx(msXML("red")),"ต้นฉบับฉบับแก้ไข (สีแดง).docx");
+    $("#jrDocClean").onclick=async()=>saveBlob(await jrDocx(msXML("clean")),"ต้นฉบับฉบับแก้ไข.docx");
     $("#jrCpMs").onclick=()=>copyText(jrClean(JR.ms));
-    $("#jrLetter").onclick=async e=>{ const t=await jrAI(`เขียนจดหมายนำส่งต้นฉบับฉบับแก้ไขถึงบรรณาธิการ${JR.journal?"วารสาร"+JR.journal:"วารสาร"} ${JR.round} เป็นภาษา${JR.lang==="en"?"อังกฤษ":"ไทยแบบทางการ"} ขอบคุณบรรณาธิการและผู้ประเมิน สรุปการแก้ไขหลัก 3-6 ข้อจากรายการด้านล่าง แจ้งว่าแนบตารางชี้แจงและต้นฉบับที่แก้ไขด้วยตัวอักษรสีแดง เว้นชื่อผู้นิพนธ์และชื่อบทความเป็น [ชื่อผู้นิพนธ์] [ชื่อบทความ] ถ้าไม่ทราบ ไม่มี markdown
-${JR.items.map(x=>`- ${x.comment} → ${x.result?x.result.response:""}`).join("\n").slice(0,8000)}`,e.target,false); if(!t) return; JR.letter=t.trim(); jrSave(); vJrev(); };
+    $("#jrLetter").onclick=async e=>{ const t=await jrAI(`เขียนจดหมายนำส่งต้นฉบับฉบับแก้ไขถึงบรรณาธิการ${JR.journal?"วารสาร"+JR.journal:"วารสาร"} ${JR.round} เป็นภาษา${JR.lang==="en"?"อังกฤษ":"ไทยแบบทางการ"} ขอบคุณบรรณาธิการและผู้ทรงคุณวุฒิทุกท่าน สรุปการแก้ไขหลักแยกตามผู้ทรงคุณวุฒิแต่ละท่าน ท่านละ 2-4 ข้อจากรายการด้านล่าง แจ้งว่าแนบตารางชี้แจงและต้นฉบับที่แก้ไขโดยแยกสีตามผู้ทรงคุณวุฒิแต่ละท่าน เว้นชื่อผู้นิพนธ์และชื่อบทความเป็น [ชื่อผู้นิพนธ์] [ชื่อบทความ] ถ้าไม่ทราบ ไม่มี markdown
+${JR.items.map(x=>`- ${jrRvName(x.rv)}: ${x.comment} → ${x.result?x.result.response:""}`).join("\n").slice(0,9000)}`,e.target,false); if(!t) return; JR.letter=t.trim(); jrSave(); vJrev(); };
     if($("#jrLetterT")) $("#jrLetterT").onchange=e=>{ JR.letter=e.target.value; jrSave(); };
     if($("#jrCpLetter")) $("#jrCpLetter").onclick=()=>copyText(JR.letter);
     if($("#jrDocLetter")) $("#jrDocLetter").onclick=async()=>saveBlob(await jrDocx(JR.letter.split(/\n/).map(l=>P(R(l),{align:"left"})).join("")),"จดหมายนำส่งฉบับแก้ไข.docx");
@@ -2197,7 +2286,8 @@ ${JR.items.map(x=>`- ${x.comment} → ${x.result?x.result.response:""}`).join("\
 function jrCollect(){
   if($("#jrJ")){ JR.journal=$("#jrJ").value.trim(); JR.round=$("#jrRound").value.trim(); JR.lang=$("#jrLang").value; JR.guide=$("#jrGuide").value;
     const v=$("#jrMs").value; if(v!==(JR.ms0||jrClean(JR.ms))){ JR.ms0=v; JR.ms=v; JR.items.forEach(x=>{ x.applied=false; }); JR.check=null; } else if(!JR.ms) JR.ms=v; }
-  if($("#jrCm")){ JR.comments=$("#jrCm").value; JR.author=$("#jrAuthor").value; }
+  $$("[data-rvt]").forEach(t=>{ JR.rv[t.dataset.rvt]=t.value; });
+  if($("#jrAuthor")) JR.author=$("#jrAuthor").value;
 }
 async function jrDocx(body){
   await loadLib("jszip"); const font="TH Sarabun New"; JC="thaiDistribute";
@@ -3732,7 +3822,7 @@ overall คือคะแนนรวม 0–100`,
 const xe = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
 function zw(t){ if(!seg) return t; return t.replace(/[\u0E00-\u0E7F]+/g, run=>[...seg.segment(run)].map(x=>x.segment).join("\u200B")); }
 let JC="thaiDistribute";
-function R(text,o={}){ const rp=`${o.b?"<w:b/><w:bCs/>":""}${o.i?"<w:i/><w:iCs/>":""}${o.color?`<w:color w:val="${o.color}"/>`:""}${o.sz?`<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>`:""}`;
+function R(text,o={}){ const rp=`${o.b?"<w:b/><w:bCs/>":""}${o.i?"<w:i/><w:iCs/>":""}${o.color?`<w:color w:val="${o.color}"/>`:""}${o.hl?`<w:highlight w:val="${o.hl}"/>`:""}${o.sup?`<w:vertAlign w:val="superscript"/>`:""}${o.sz?`<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>`:""}`;
   return `<w:r>${rp?`<w:rPr>${rp}</w:rPr>`:""}<w:t xml:space="preserve">${xe(zw(text))}</w:t></w:r>`; }
 function runsInline(text,o){ return text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/).filter(Boolean).map(part=>/^\*\*.*\*\*$/.test(part)?R(part.slice(2,-2),{...o,b:true}):/^\*[^*].*\*$/.test(part)?R(part.slice(1,-1),{...o,i:true}):R(part,o)).join(""); }
 function P(inner,o={}){
