@@ -2602,7 +2602,7 @@ function vUsers(){
   $("#uaForm").onsubmit=async ev=>{ ev.preventDefault();
     const u=$("#uaU").value.trim().toLowerCase(), pw=$("#uaPw2").value.trim();
     if(!/^[a-z0-9._-]{3,40}$/.test(u)){ msg.textContent="ชื่อผู้ใช้ต้องเป็น a-z 0-9 . _ - ยาว 3–40 ตัว"; return; }
-    if(!e&&pw.length<6){ msg.textContent="รหัสผ่านอย่างน้อย 6 ตัว"; return; } if(e&&pw&&pw.length<6){ msg.textContent="รหัสผ่านอย่างน้อย 6 ตัว"; return; }
+    if(!e&&pw.length<4){ msg.textContent="รหัสผ่านอย่างน้อย 4 ตัว"; return; } if(e&&pw&&pw.length<4){ msg.textContent="รหัสผ่านอย่างน้อย 4 ตัว"; return; }
     if(!e&&L.some(x=>x.u===u)){ msg.textContent="มีชื่อผู้ใช้นี้แล้ว กด แก้ไข ที่ตารางด้านล่าง"; return; }
     const acct={u,name:$("#uaName").value.trim(),quota:$("#uaQ").value,exp:$("#uaExp").value,pack:$("#uaPack").value.trim(),note:$("#uaNote").value.trim(),status:$("#uaSt").value};
     if(e){ acct.addQuota=Number($("#uaAdd").value)||0; acct.resetUsed=$("#uaReset").checked; acct.kick=$("#uaKick").checked; }
