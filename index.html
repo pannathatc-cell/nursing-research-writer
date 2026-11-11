@@ -200,6 +200,18 @@ tr:last-child td{border-bottom:0}
 .tokbar i{display:block;height:100%;background:var(--accent);border-radius:4px}
 .tokbar i.low{background:#c0392b}
 .uatbl td{vertical-align:middle}.uatbl tr.ban td{opacity:.55}
+.sc-cam{position:relative;margin-top:10px;border-radius:12px;overflow:hidden;background:#000;max-width:720px}
+.sc-cam video{display:block;width:100%;max-height:70vh;object-fit:contain}
+.sc-guide{position:absolute;inset:6% 8%;border:2px dashed rgba(255,255,255,.7);border-radius:8px;pointer-events:none}
+.sc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sc-pg{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.sc-th{aspect-ratio:3/4;overflow:hidden;background:var(--sunk);border-radius:6px}.sc-pg img{width:100%;height:100%;object-fit:contain;display:block;transition:transform .2s}
+.sc-pg figcaption{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.sc-pg figcaption .btn{padding:2px 8px;min-height:0}
+.sc-eng{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.sc-eng label{display:flex;gap:8px;align-items:baseline;line-height:1.5}
+.sc-prog{height:6px;background:var(--sunk);border-radius:4px;overflow:hidden;margin-top:10px}.sc-prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+#scOut{width:100%;min-height:280px}
 /* ===== หน้าขอใช้งาน / รออนุมัติ ===== */
 .gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(18,32,38,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .gate[hidden]{display:none}
@@ -754,7 +766,7 @@ function renderProjSel(){
 /* ============ นำทาง ============ */
 const NAV = [
  ["grp","ติดตามงาน"],["dash","แดชบอร์ด"],["setup","ข้อมูลตั้งต้น"],["ai","ตั้งค่าผู้ช่วย AI"],["users","จัดการผู้ใช้และโควตา token"],
- ["grp","เขียนงาน"],["topic","ตั้งชื่อเรื่อง"],["write","เขียนรายบท"],["rewrite","เรียบเรียงและ Paraphraser"],["ethics","จริยธรรมการวิจัย"],["stats","สถิติการวิจัย"],["power","คำนวณขนาดตัวอย่าง (G*Power)"],["chat","แชตผู้ช่วยค้นคว้า"],["lit","อ่านและประเมินงานวิจัย"],["refs","คลังอ้างอิง"],["refaudit","ตรวจสอบเอกสารอ้างอิง (APA 7)"],["data","ข้อมูลและการวิเคราะห์"],["align","ตรวจความสอดคล้อง"],["files","ไฟล์และต้นฉบับ"],
+ ["grp","เขียนงาน"],["topic","ตั้งชื่อเรื่อง"],["write","เขียนรายบท"],["rewrite","เรียบเรียงและ Paraphraser"],["ethics","จริยธรรมการวิจัย"],["stats","สถิติการวิจัย"],["power","คำนวณขนาดตัวอย่าง (G*Power)"],["chat","แชตผู้ช่วยค้นคว้า"],["lit","อ่านและประเมินงานวิจัย"],["refs","คลังอ้างอิง"],["refaudit","ตรวจสอบเอกสารอ้างอิง (APA 7)"],["data","ข้อมูลและการวิเคราะห์"],["align","ตรวจความสอดคล้อง"],["files","ไฟล์และต้นฉบับ"],["scan","สแกนเอกสาร (ถ่ายภาพ)"],
  ["grp","ปิดโครงการ"],["abstract","บทคัดย่อ"],["review","โหมดผู้ทรงคุณวุฒิ"],["jrev","แก้ไขบทความตามผู้ทรงฯ วารสาร"],["export","ส่งออก Word"],["gdrive","บันทึกลง Google Drive"]
 ];
 function renderNav(){
@@ -763,9 +775,10 @@ function renderNav(){
 function go(v){
   if(!authCan(v)){ toast("เมนูนี้สำหรับผู้ดูแลระบบเท่านั้น หากต้องการใช้งาน กรุณาติดต่อผู้ดูแลระบบ"); v=S.view&&authCan(S.view)?S.view:(S.p?"dash":"welcome"); }
   if(S.ctl){ try{S.ctl.abort();}catch{} S.ctl=null; }
-  if(!S.p && v!=="welcome" && v!=="ai" && v!=="users" && v!=="gdrive" && v!=="rewrite" && v!=="jrev") v="welcome";
+  if(!S.p && v!=="welcome" && v!=="ai" && v!=="users" && v!=="scan" && v!=="gdrive" && v!=="rewrite" && v!=="jrev") v="welcome";
+  if(v!=="scan"&&typeof scStopCam==="function") scStopCam();
   S.view=v; renderNav(); window.scrollTo(0,0);
-  const r = {users:vUsers,power:vPower,chat:vChat,refs:vRefs,refaudit:vRefAudit,rewrite:vRewrite,lit:vLit,data:vData,ethics:vEthics,stats:vStats,ai:vAI,welcome:vWelcome,dash:vDash,setup:vSetup,topic:vTopic,write:vWrite,align:vAlign,files:vFiles,abstract:vAbstract,review:vReview,jrev:vJrev,export:vExport,gdrive:vGDrive}[v];
+  const r = {scan:vScan,users:vUsers,power:vPower,chat:vChat,refs:vRefs,refaudit:vRefAudit,rewrite:vRewrite,lit:vLit,data:vData,ethics:vEthics,stats:vStats,ai:vAI,welcome:vWelcome,dash:vDash,setup:vSetup,topic:vTopic,write:vWrite,align:vAlign,files:vFiles,abstract:vAbstract,review:vReview,jrev:vJrev,export:vExport,gdrive:vGDrive}[v];
   r();
   accessLogView(v);
 }
@@ -908,7 +921,7 @@ function makeOpenAISample(key, model, effort){
     const prompt = typeof input==="string" ? input : input.map(m=>m.content).join("\n\n");
     const body={model, stream:true, store:false,
       instructions:"ตอบเป็นภาษาไทยตามคำสั่งของผู้ใช้อย่างเคร่งครัด"+(wantJson?" ตอบเป็น JSON ที่ถูกต้องเพียงก้อนเดียว ไม่มีข้อความอื่น":""),
-      input:[{role:"user",content:[{type:"input_text",text:prompt}]}],
+      input:[{role:"user",content:[...(opts.images||[]).map(im=>({type:"input_image",image_url:`data:${im.type};base64,${im.data}`})),{type:"input_text",text:prompt}]}],
       text: legacy ? {format:{type:wantJson?"json_object":"text"}} : {format:{type:wantJson?"json_object":"text"}, verbosity:"medium"}};
     if(!legacy) body.reasoning={effort:effort||"medium", mode:"standard", summary:"auto"};
     if(opts.webSearch){ body.tools=[{type:opts._wsName||"web_search"}]; body.include=["web_search_call.action.sources"]; }
@@ -963,6 +976,7 @@ function makeChatCompatSample(key, model, base){
   async function call(input, opts={}, wantJson=false){
     const raw = typeof input==="string" ? [{role:"user",content:input}] : input.map(m=>({role:m.role==="assistant"?"assistant":"user",content:String(m.content||"")}));
     const sys="ตอบเป็นภาษาไทยตามคำสั่งของผู้ใช้อย่างเคร่งครัด"+(wantJson?" ตอบเป็น JSON ที่ถูกต้องเพียงก้อนเดียว ไม่มีข้อความอื่น":"");
+    if(opts.images&&opts.images.length&&raw.length){ const l=raw[raw.length-1]; l.content=[...opts.images.map(im=>({type:"image_url",image_url:{url:`data:${im.type};base64,${im.data}`}})),{type:"text",text:l.content}]; }
     const body={model,stream:true,messages:[{role:"system",content:sys},...raw]};
     let res;
     try{ res=await fetch(url,{method:"POST",signal:opts.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify(body)}); }
@@ -1004,6 +1018,7 @@ function makeAnthropicSample(key, model, base){
     const raw = typeof input==="string" ? [{role:"user",content:input}] : input.map(m=>({role:m.role==="assistant"?"assistant":"user",content:String(m.content||"")}));
     const msgs=[]; raw.forEach(m=>{ const l=msgs[msgs.length-1]; if(l&&l.role===m.role) l.content+="\n\n"+m.content; else msgs.push({...m}); }); if(msgs[0]?.role!=="user") msgs.unshift({role:"user",content:"เริ่ม"});
     if(msgs[msgs.length-1].role!=="user") msgs.push({role:"user",content:"ตอบต่อ"});
+    if(opts.images&&opts.images.length){ const l=msgs[msgs.length-1]; l.content=[...opts.images.map(im=>({type:"image",source:{type:"base64",media_type:im.type,data:im.data}})),{type:"text",text:l.content}]; }
     const body={model,max_tokens:32000,stream:true,system:"ตอบเป็นภาษาไทยตามคำสั่งของผู้ใช้อย่างเคร่งครัด"+(wantJson?" ตอบเป็น JSON ที่ถูกต้องเพียงก้อนเดียว ไม่มีข้อความอื่น":""),messages:msgs};
     if(opts.webSearch) body.tools=[{type:"web_search_20250305",name:"web_search",max_uses:5}];
     let res;
@@ -1038,6 +1053,7 @@ function makeGeminiSample(key, model){
     const raw = typeof input==="string" ? [{role:"user",content:input}] : input.map(m=>({role:m.role==="assistant"?"model":"user",content:String(m.content||"")}));
     const ct=[]; raw.forEach(m=>{ const l=ct[ct.length-1]; if(l&&l.role===m.role) l.parts[0].text+="\n\n"+m.content; else ct.push({role:m.role,parts:[{text:m.content}]}); });
     if(ct[0]?.role!=="user") ct.unshift({role:"user",parts:[{text:"เริ่ม"}]}); if(ct[ct.length-1].role!=="user") ct.push({role:"user",parts:[{text:"ตอบต่อ"}]});
+    if(opts.images&&opts.images.length){ const l=ct[ct.length-1]; l.parts=[...opts.images.map(im=>({inline_data:{mime_type:im.type,data:im.data}})),...l.parts]; }
     const body={contents:ct,systemInstruction:{parts:[{text:"ตอบเป็นภาษาไทยตามคำสั่งของผู้ใช้อย่างเคร่งครัด"+(wantJson?" ตอบเป็น JSON ที่ถูกต้องเพียงก้อนเดียว ไม่มีข้อความอื่น":"")}]}};
     if(wantJson) body.generationConfig={responseMimeType:"application/json"};
     if(opts.webSearch&&!wantJson) body.tools=[{google_search:{}}];
@@ -2435,6 +2451,131 @@ async function jrDocx(body){
   zip.file("word/_rels/document.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file("word/document.xml",doc); zip.file("word/styles.xml",styles);
   return await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+/* ============ สแกนเอกสารด้วยการถ่ายภาพ: กล้อง/รูปภาพ → ข้อความ (AI หรือ Tesseract) → Word, PDF, คลังเอกสาร ============ */
+const SC={pages:[],text:"",engine:"ai",enhance:true,thaiFix:true,busy:false,stream:null,facing:"environment",ctl:null};
+const SC_LIB={tess:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",jspdf:"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"};
+const scImg=src=>new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("เปิดรูปไม่ได้")); i.src=src; });
+function scFit(w,h,max){ const k=Math.min(1,max/Math.max(w,h)); return [Math.round(w*k),Math.round(h*k)]; }
+async function scAddSource(src){ const im=await scImg(src); const [w,h]=scFit(im.naturalWidth||im.width,im.naturalHeight||im.height,2200); const c=document.createElement("canvas"); c.width=w; c.height=h; c.getContext("2d").drawImage(im,0,0,w,h); SC.pages.push({id:uid8(),src:c.toDataURL("image/jpeg",0.9),rot:0}); }
+async function scAddFiles(files){
+  for(const f of files){ if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)){ toast(`${f.name} ไม่ใช่ไฟล์รูปภาพ`); continue; }
+    try{ const u=URL.createObjectURL(f); await scAddSource(u); URL.revokeObjectURL(u); }catch{ toast(`เปิด ${f.name} ไม่ได้ (ถ้าเป็น HEIC ให้ตั้งกล้องเป็น JPG หรือส่งออกเป็น JPG ก่อน)`); } }
+  vScan();
+}
+/* ภาพพร้อมใช้: หมุน + ปรับให้เป็นเอกสาร (ขาวดำ ยืดคอนทราสต์) */
+async function scRender(pg,max=1800,enh=SC.enhance){
+  const im=await scImg(pg.src); const r=((pg.rot%360)+360)%360, sw=r%180?im.height:im.width, sh=r%180?im.width:im.height; const [w,h]=scFit(sw,sh,max);
+  const c=document.createElement("canvas"); c.width=w; c.height=h; const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h);
+  x.translate(w/2,h/2); x.rotate(r*Math.PI/180); const dw=r%180?h:w, dh=r%180?w:h; x.drawImage(im,-dw/2,-dh/2,dw,dh); x.setTransform(1,0,0,1,0,0);
+  if(enh){ const d=x.getImageData(0,0,w,h), a=d.data, hist=new Uint32Array(256);
+    for(let i=0;i<a.length;i+=4){ const g=(a[i]*299+a[i+1]*587+a[i+2]*114)/1000|0; a[i]=g; hist[g]++; }
+    const tot=w*h; let lo=0,hi=255,acc=0; for(;lo<255;lo++){ acc+=hist[lo]; if(acc>tot*0.01) break; } acc=0; for(;hi>0;hi--){ acc+=hist[hi]; if(acc>tot*0.08) break; }
+    const span=Math.max(30,hi-lo); for(let i=0;i<a.length;i+=4){ let v=(a[i]-lo)*255/span; v=v<0?0:v>255?255:v; v=v>200?255:v; a[i]=a[i+1]=a[i+2]=v; } x.putImageData(d,0,0); }
+  return c;
+}
+function scAIok(){ return !!S.sample && S.provider!=="claude"; }
+function vScan(){
+  const M=$("#main"), n=SC.pages.length, cam=!!SC.stream, aiOk=scAIok();
+  if(SC.engine==="ai"&&!aiOk) SC.engine="tess";
+  M.innerHTML=`<h1>สแกนเอกสาร (ถ่ายภาพ)</h1>
+  <p class="lead">ถ่ายภาพเอกสาร หนังสือ แบบสอบถาม หรือเอกสารอ้างอิงที่เป็นกระดาษ แล้วแปลงเป็นข้อความที่แก้ไขได้ ส่งออกเป็น Word หรือ PDF หรือเพิ่มเข้าคลังเอกสารของโครงการ ถ่ายได้หลายหน้าต่อเนื่อง</p>
+  <div class="panel"><div class="row">
+    <button class="btn pri" id="scCam" type="button">${cam?"ปิดกล้อง":"📷 เปิดกล้องถ่ายภาพ"}</button>
+    <label class="btn" for="scShot">ถ่ายด้วยกล้องมือถือ</label><input id="scShot" type="file" accept="image/*" capture="environment" hidden>
+    <label class="btn" for="scPick">เลือกรูปจากเครื่อง</label><input id="scPick" type="file" accept="image/*" multiple hidden>
+    ${n?`<button class="btn ghost" id="scClear" type="button">ล้างทุกหน้า</button>`:""}</div>
+    <p class="small muted" style="margin:8px 0 0">เคล็ดลับ: วางเอกสารบนพื้นเรียบสีเข้ม ให้แสงสม่ำเสมอ ไม่มีเงา ถือกล้องตรงกับหน้ากระดาษ และให้เอกสารเต็มกรอบ</p>
+    ${cam?`<div class="sc-cam"><video id="scVideo" autoplay playsinline muted></video><div class="sc-guide" aria-hidden="true"></div></div>
+     <div class="row" style="margin-top:8px"><button class="btn pri" id="scSnap" type="button">ถ่ายภาพหน้านี้ (หน้า ${n+1})</button><button class="btn" id="scFlip" type="button">สลับกล้องหน้า/หลัง</button></div>`:""}
+  </div>
+  <h2>หน้าที่สแกน ${n?`(${n} หน้า)`:""}</h2>
+  ${n?`<div class="sc-grid">${SC.pages.map((p,i)=>`<figure class="sc-pg"><div class="sc-th"><img src="${p.src}" alt="หน้า ${i+1}" style="transform:rotate(${p.rot}deg)${p.rot%180?" scale(.75)":""}"></div><figcaption>หน้า ${i+1}
+    <span><button class="btn ghost" data-scr="${i}" type="button" aria-label="หมุนหน้า ${i+1}">↻</button>${i?`<button class="btn ghost" data-scu="${i}" type="button" aria-label="เลื่อนหน้า ${i+1} ขึ้น">↑</button>`:""}<button class="btn ghost" data-scd="${i}" type="button" aria-label="ลบหน้า ${i+1}">✕</button></span></figcaption></figure>`).join("")}</div>`
+   :`<div class="panel muted">ยังไม่มีหน้า เปิดกล้องหรือเลือกรูปเพื่อเริ่ม</div>`}
+  ${n?`<h2>แปลงเป็นข้อความ</h2><div class="panel">
+    <fieldset class="sc-eng"><legend class="small muted">วิธีอ่านข้อความ</legend>
+      <label><input type="radio" name="scEng" value="ai" ${SC.engine==="ai"?"checked":""} ${aiOk?"":"disabled"}> <b>ผู้ช่วย AI อ่าน</b> แม่นยำสูง อ่านตารางและลายมือได้ (ใช้ token)${aiOk?"":` <span class="small muted">— ใช้ได้เมื่อเชื่อมต่อ API key (ไม่รองรับโหมดบัญชี claude.ai)</span>`}</label>
+      <label><input type="radio" name="scEng" value="tess" ${SC.engine==="tess"?"checked":""}> <b>อ่านในเครื่อง (Tesseract)</b> ฟรี ไม่ใช้ token เหมาะกับตัวพิมพ์ชัด ๆ โหลดครั้งแรกประมาณ 15 MB</label></fieldset>
+    <label class="small" style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="scEnh" ${SC.enhance?"checked":""}> ปรับภาพให้เป็นเอกสาร (ขาวดำ คมชัด ลบเงา) ก่อนอ่าน</label>
+    <label class="small" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" id="scFix" ${SC.thaiFix?"checked":""}> ลบช่องว่างเกินระหว่างตัวอักษรไทย (เฉพาะ Tesseract)</label>
+    <div class="row" style="margin-top:10px"><button class="btn pri" id="scGo" type="button" ${SC.busy?"disabled":""}>อ่านข้อความจาก ${n} หน้า</button>${SC.busy?`<button class="btn ghost" id="scStop" type="button">หยุด</button>`:""}<span class="small muted" id="scMsg" role="status"></span></div>
+    <div class="sc-prog" ${SC.busy?"":"hidden"}><i id="scBar"></i></div></div>`:""}
+  ${SC.text||n?`<h2>ข้อความที่ได้</h2><div class="panel">
+    <textarea id="scOut" rows="16" class="docfont" placeholder="ข้อความจากภาพจะแสดงที่นี่ แก้ไขได้ก่อนนำไปใช้">${esc(SC.text)}</textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="scCopy" type="button">คัดลอกข้อความ</button>
+      <button class="btn" id="scWord" type="button">ดาวน์โหลด Word</button>
+      <button class="btn" id="scPdf" type="button" ${n?"":"disabled"}>ดาวน์โหลดภาพสแกนเป็น PDF</button>
+      ${S.p?`<button class="btn" id="scLib" type="button">เพิ่มเข้าคลังเอกสารของโครงการ</button>`:`<span class="small muted">เปิดโครงการเพื่อเพิ่มข้อความเข้าคลังเอกสาร</span>`}
+    </div><p class="small muted" style="margin:8px 0 0">ตรวจทานข้อความกับต้นฉบับทุกครั้ง โดยเฉพาะตัวเลข ชื่อเฉพาะ และวรรณยุกต์</p></div>`:""}`;
+  scBind();
+  if(cam){ const v=$("#scVideo"); v.srcObject=SC.stream; v.play().catch(()=>{}); }
+}
+function scStopCam(){ if(SC.stream){ SC.stream.getTracks().forEach(t=>t.stop()); SC.stream=null; } }
+async function scStartCam(){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){ toast("เบราว์เซอร์นี้เปิดกล้องไม่ได้ ใช้ปุ่ม ถ่ายด้วยกล้องมือถือ หรือ เลือกรูปจากเครื่อง แทน"); return; }
+  try{ SC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:SC.facing},width:{ideal:2560},height:{ideal:1920}},audio:false}); vScan(); }
+  catch(e){ toast(e&&e.name==="NotAllowedError"?"ไม่ได้รับอนุญาตให้ใช้กล้อง กดไอคอนกล้องที่แถบที่อยู่เว็บแล้วเลือก อนุญาต":"เปิดกล้องไม่ได้: "+(e&&e.message||"")); }
+}
+function scBind(){
+  $("#scCam").onclick=()=>{ if(SC.stream){ scStopCam(); vScan(); } else scStartCam(); };
+  $("#scShot").onchange=e=>{ const f=[...e.target.files]; e.target.value=""; scAddFiles(f); };
+  $("#scPick").onchange=e=>{ const f=[...e.target.files]; e.target.value=""; scAddFiles(f); };
+  if($("#scClear")) $("#scClear").onclick=()=>{ SC.pages=[]; vScan(); };
+  if($("#scSnap")) $("#scSnap").onclick=async()=>{ const v=$("#scVideo"); if(!v.videoWidth){ toast("กล้องยังไม่พร้อม"); return; }
+    const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight; c.getContext("2d").drawImage(v,0,0); await scAddSource(c.toDataURL("image/jpeg",0.92)); toast(`ถ่ายหน้า ${SC.pages.length} แล้ว`); vScan(); };
+  if($("#scFlip")) $("#scFlip").onclick=()=>{ SC.facing=SC.facing==="environment"?"user":"environment"; scStopCam(); scStartCam(); };
+  $$("[data-scr]").forEach(b=>b.onclick=()=>{ SC.pages[+b.dataset.scr].rot+=90; vScan(); });
+  $$("[data-scu]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.scu; [SC.pages[i-1],SC.pages[i]]=[SC.pages[i],SC.pages[i-1]]; vScan(); });
+  $$("[data-scd]").forEach(b=>b.onclick=()=>{ SC.pages.splice(+b.dataset.scd,1); vScan(); });
+  $$("[name=scEng]").forEach(r=>r.onchange=()=>{ SC.engine=r.value; });
+  if($("#scEnh")) $("#scEnh").onchange=e=>{ SC.enhance=e.target.checked; };
+  if($("#scFix")) $("#scFix").onchange=e=>{ SC.thaiFix=e.target.checked; };
+  if($("#scGo")) $("#scGo").onclick=scRun;
+  if($("#scStop")) $("#scStop").onclick=()=>{ SC.stopped=true; try{ SC.ctl&&SC.ctl.abort(); }catch{} };
+  const out=$("#scOut"); if(out) out.oninput=()=>{ SC.text=out.value; };
+  if($("#scCopy")) $("#scCopy").onclick=()=>copyText($("#scOut").value);
+  if($("#scWord")) $("#scWord").onclick=async()=>{ const t=$("#scOut").value.trim(); if(!t){ toast("ยังไม่มีข้อความ"); return; }
+    const body=t.split(/\n/).map(l=>/^---\s*หน้า/.test(l)?P(R(l.replace(/-/g,"").trim(),{b:true}),{align:"center",before:120,after:60}):P(runsInline(l,{}),{align:"left"})).join("");
+    try{ await saveBlob(await jrDocx(body),"เอกสารสแกน.docx"); }catch(e){ toast("สร้างไฟล์ Word ไม่สำเร็จ"); } };
+  if($("#scPdf")) $("#scPdf").onclick=scPdf;
+  if($("#scLib")) $("#scLib").onclick=()=>{ const t=$("#scOut").value.trim(); if(!t){ toast("ยังไม่มีข้อความ"); return; }
+    const id=uid8(), text=t.slice(0,MAXF), name="เอกสารสแกน "+new Date().toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"});
+    S.p.files.push({id,name,role:"ref",chars:text.length,cut:t.length>MAXF,at:Date.now()}); S.fileText[id]=text;
+    const pid=S.p.id; schedule(`p-${pid}-f-${id}`,()=>({kind:"file",project:pid,text}),50); saveMeta(); toast("เพิ่มเข้าคลังเอกสารแล้ว (เมนู ไฟล์และต้นฉบับ)"); };
+}
+async function scRun(){
+  if(SC.busy||!SC.pages.length) return; SC.busy=true; SC.stopped=false; vScan();
+  const msg=()=>$("#scMsg"), bar=()=>$("#scBar"), set=(t,pc)=>{ if(msg()) msg().textContent=t; if(bar()&&pc!=null) bar().style.width=pc+"%"; };
+  const outs=[]; const N=SC.pages.length; let worker=null;
+  try{
+    if(SC.engine==="tess"){ set("กำลังโหลดตัวอ่านภาษาไทย (ครั้งแรกใช้เวลาสักครู่)…",2);
+      if(!window.Tesseract) await loadScript(SC_LIB.tess);
+      let cur=0; worker=await Tesseract.createWorker(["tha","eng"],1,{logger:m=>{ if(m.status==="recognizing text") set(`กำลังอ่านหน้า ${cur+1}/${N}…`,((cur+m.progress)/N)*100); }}); 
+      for(;cur<N;cur++){ if(SC.stopped) break; const c=await scRender(SC.pages[cur],2400); const {data}=await worker.recognize(c); let t=(data.text||"").trim();
+        if(SC.thaiFix) t=t.replace(/([฀-๿]) (?=[฀-๿])/g,"$1"); outs.push(t); }
+    } else {
+      for(let i=0;i<N;i++){ if(SC.stopped) break; set(`ผู้ช่วย AI กำลังอ่านหน้า ${i+1}/${N}…`,(i/N)*100);
+        const c=await scRender(SC.pages[i],1600); const data=c.toDataURL("image/jpeg",0.85).split(",")[1]; SC.ctl=new AbortController();
+        const r=await S.sample("ถอดข้อความทั้งหมดจากภาพเอกสารนี้ให้ตรงตามต้นฉบับทุกตัวอักษร ทั้งภาษาไทยและภาษาอังกฤษ รักษาลำดับ ย่อหน้า หัวข้อ เลขข้อ และการขึ้นบรรทัดใหม่ ถ้ามีตารางให้ทำเป็นตาราง Markdown ห้ามแปล ห้ามสรุป ห้ามแก้คำ ห้ามเติมคำอธิบายใด ๆ ส่วนที่อ่านไม่ออกให้ใส่ [อ่านไม่ออก] ส่งเฉพาะข้อความที่ถอดได้",{images:[{type:"image/jpeg",data}],signal:SC.ctl.signal});
+        outs.push(String(r.text||"").trim()); }
+    }
+    const joined=outs.map((t,i)=>N>1?`--- หน้า ${i+1} ---\n${t}`:t).join("\n\n");
+    SC.text=(SC.text&&SC.text.trim()?SC.text.trim()+"\n\n":"")+joined; SC.busy=false; vScan(); toast(SC.stopped?`หยุดแล้ว อ่านได้ ${outs.length} หน้า`:`อ่านข้อความครบ ${N} หน้าแล้ว`);
+  }catch(e){ SC.busy=false; const m=e&&e.code?(e.code==="cancelled"?"หยุดแล้ว":ERR[e.code]||ERR.upstream_error):(e&&e.message)||"อ่านไม่สำเร็จ";
+    if(outs.length){ SC.text=(SC.text?SC.text+"\n\n":"")+outs.join("\n\n"); } vScan(); toast(m); }
+  finally{ SC.busy=false; if(worker) try{ await worker.terminate(); }catch{} }
+}
+async function scPdf(){
+  if(!SC.pages.length) return; toast("กำลังสร้าง PDF…");
+  try{ if(!(window.jspdf&&window.jspdf.jsPDF)) await loadScript(SC_LIB.jspdf);
+    const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"}); const W=210,H=297,m=8;
+    for(let i=0;i<SC.pages.length;i++){ const c=await scRender(SC.pages[i],2000); if(i) doc.addPage("a4"); const k=Math.min((W-2*m)/c.width,(H-2*m)/c.height), w=c.width*k, h=c.height*k;
+      doc.addImage(c.toDataURL("image/jpeg",0.82),"JPEG",(W-w)/2,(H-h)/2,w,h); }
+    await saveBlob(doc.output("blob"),"เอกสารสแกน.pdf");
+  }catch(e){ toast("สร้าง PDF ไม่สำเร็จ: "+(e.message||"")); }
 }
 
 /* ============ เข้าสู่ระบบ: ผู้ดูแลระบบ (ทำได้ทุกอย่าง) และผู้ใช้ (บัญชีที่แอดมินสร้าง พร้อมโควตา token) ============ */
