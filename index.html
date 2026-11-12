@@ -212,6 +212,19 @@ tr:last-child td{border-bottom:0}
 .sc-eng label{display:flex;gap:8px;align-items:baseline;line-height:1.5}
 .sc-prog{height:6px;background:var(--sunk);border-radius:4px;overflow:hidden;margin-top:10px}.sc-prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
 #scOut{width:100%;min-height:280px}
+#vdock{position:fixed;z-index:70;display:flex;gap:4px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.14)}
+#vdock[hidden]{display:none}
+#vdock button{border:0;background:none;cursor:pointer;border-radius:999px;height:30px;min-width:30px;display:grid;place-items:center;color:var(--accent);font:inherit;font-size:12.5px;padding:0 6px}
+#vdock #vdMic{background:var(--accent);color:#fff;width:30px;padding:0}
+#vdock #vdMic.on,.vcmd.on{background:#c0392b!important;color:#fff;animation:vdpulse 1.2s infinite}
+@keyframes vdpulse{0%{box-shadow:0 0 0 0 rgba(192,57,43,.55)}70%{box-shadow:0 0 0 12px rgba(192,57,43,0)}100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}}
+.vcmd{position:fixed;right:max(30px,calc(env(safe-area-inset-right) + 30px));bottom:max(104px,calc(env(safe-area-inset-bottom) + 104px));z-index:59;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;cursor:pointer;display:grid;place-items:center;box-shadow:0 6px 18px rgba(0,0,0,.22)}
+.vcmd:focus-visible,#vdock button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.vd-bubble{position:fixed;right:max(92px,calc(env(safe-area-inset-right) + 92px));bottom:max(110px,calc(env(safe-area-inset-bottom) + 110px));z-index:59;max-width:min(360px,calc(100vw - 120px));background:var(--ink);color:var(--surface);padding:9px 13px;border-radius:12px;font-size:14px;line-height:1.5;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.vd-bubble[hidden]{display:none}
+body:has(.bot-panel:not([hidden])) .vcmd,body:has(.bot-panel:not([hidden])) .vd-bubble{display:none}
+body:has(#gate:not([hidden])) .vcmd,body:has(#gate:not([hidden])) #vdock{display:none!important}
+@media print{#vdock,.vcmd,.vd-bubble{display:none!important}}
 /* ===== หน้าขอใช้งาน / รออนุมัติ ===== */
 .gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(18,32,38,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .gate[hidden]{display:none}
@@ -1657,6 +1670,89 @@ function initBotVoice(){
   try{ speechSynthesis&&speechSynthesis.getVoices(); }catch{}
   botSpoken=(S.chat||[]).length-1;
 }
+/* ============ พิมพ์และสั่งงานด้วยเสียงทุกเมนู ============
+   1) แตะช่องพิมพ์ใดก็ได้ → ปุ่มไมค์ลอยขึ้นที่มุมช่อง กดแล้วพูด ข้อความจะพิมพ์ลงช่องนั้น
+   2) ปุ่มไมค์ใหญ่มุมขวาล่าง: ถ้ากำลังอยู่ในช่องพิมพ์ = พิมพ์ด้วยเสียง / ถ้าไม่ได้อยู่ในช่อง = สั่งงาน เช่น "ไปที่เขียนรายบท" "ค้นหา ภาวะซึมเศร้าผู้สูงอายุ" */
+const VD={rec:null,on:false,mode:null,field:null,lang:"th-TH"};
+try{ VD.lang=localStorage.getItem("nrw:vdLang")||"th-TH"; }catch{}
+function vdOk(el){ if(!el||!el.matches) return false; if(el.closest("#loginForm,#botPanel,.gate,#vdock")) return false; if(el.readOnly||el.disabled) return false;
+  if(el.tagName==="TEXTAREA") return true; if(el.tagName!=="INPUT") return false; const t=(el.getAttribute("type")||"text").toLowerCase(); return ["text","search","url",""].includes(t)&&!/^(uaU|lgUser)$/.test(el.id); }
+function vdSay(t,keep){ const b=$("#vdBubble"); if(!b) return; b.textContent=t; b.hidden=!t; clearTimeout(VD.bt); if(t&&!keep) VD.bt=setTimeout(()=>{ b.hidden=true; },3500); }
+function vdUI(){ const on=VD.on; const d=$("#vdMic"), c=$("#vCmd");
+  if(d){ d.classList.toggle("on",on&&VD.mode==="type"); d.setAttribute("aria-pressed",on&&VD.mode==="type"?"true":"false"); d.title=on?"หยุดฟัง":"พิมพ์ด้วยเสียง"; }
+  if(c){ c.classList.toggle("on",on); c.setAttribute("aria-pressed",on?"true":"false"); c.title=on?"หยุดฟัง":"สั่งงานหรือพิมพ์ด้วยเสียง"; }
+  const lg=$("#vdLang"); if(lg) lg.textContent=VD.lang==="th-TH"?"ไทย":"EN"; }
+function vdPlace(){ const dk=$("#vdock"), f=VD.field; if(!dk) return;
+  if(!f||!document.contains(f)||!f.offsetParent){ if(!VD.on) dk.hidden=true; return; }
+  const r=f.getBoundingClientRect(); if(r.bottom<0||r.top>innerHeight){ dk.hidden=true; return; }
+  dk.hidden=false; const w=dk.offsetWidth||80, h=dk.offsetHeight||36;
+  const top=f.tagName==="TEXTAREA"?Math.min(r.bottom,innerHeight)-h-6:r.top+(r.height-h)/2;
+  dk.style.top=Math.max(4,top)+"px"; dk.style.left=Math.max(4,Math.min(innerWidth-w-4,r.right-w-6))+"px"; }
+function vdStop(){ try{ VD.rec&&VD.rec.stop(); }catch{} }
+function vdClean(t){ return t.replace(/\s*(ขึ้นบรรทัดใหม่|ขึ้นย่อหน้าใหม่|new line)\s*/gi,"\n").replace(/\s*(เว้นวรรค)\s*/g," ").replace(/\s*(จุลภาค|ลูกน้ำ)\s*/g,", ").replace(/\s*(มหัพภาค|ฟูลสต็อป|full stop)\s*/gi,". ").replace(/\s*(เครื่องหมายคำถาม|question mark)\s*/gi,"? "); }
+function vdType(field){
+  if(!SR){ toast("เบราว์เซอร์นี้ไม่รองรับการพิมพ์ด้วยเสียง ใช้ Chrome, Edge หรือ Safari"); return; }
+  if(VD.on){ vdStop(); return; }
+  try{ botRec&&botListening&&botRec.stop(); speechSynthesis&&speechSynthesis.cancel(); }catch{}
+  const f=field; f.focus(); const s=f.selectionStart??f.value.length, e=f.selectionEnd??f.value.length;
+  const before=f.value.slice(0,s), after=f.value.slice(e); let fin="";
+  const sep=(a,b)=>a&&b&&!/\s$/.test(a)&&!/^\s/.test(b)?" ":"";
+  const rec=new SR(); VD.rec=rec; rec.lang=VD.lang; rec.interimResults=true; rec.continuous=true;
+  rec.onresult=ev=>{ let interim=""; for(let i=ev.resultIndex;i<ev.results.length;i++){ const t=ev.results[i][0].transcript; if(ev.results[i].isFinal) fin+=vdClean(t); else interim+=t; }
+    const mid=fin+interim, pre=before+sep(before,mid); f.value=pre+mid+sep(mid,after)+after; const pos=(pre+mid).length; try{ f.setSelectionRange(pos,pos); }catch{}
+    f.dispatchEvent(new Event("input",{bubbles:true})); if(f.tagName==="TEXTAREA") f.scrollTop=f.scrollHeight; vdSay(interim?"กำลังฟัง: "+interim:"",true); };
+  rec.onerror=ev=>{ vdErr(ev.error); };
+  rec.onend=()=>{ VD.on=false; VD.mode=null; vdUI(); vdSay(fin.trim()?"พิมพ์แล้ว ✓":"",false); if(fin.trim()) f.dispatchEvent(new Event("change",{bubbles:true})); };
+  try{ rec.start(); VD.on=true; VD.mode="type"; vdUI(); vdSay("พูดได้เลย… กดไมค์อีกครั้งเพื่อหยุด",true); }catch{ toast("เริ่มฟังไม่ได้ ลองอีกครั้ง"); }
+}
+function vdErr(code){ const m={"not-allowed":"ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน กดไอคอนที่แถบที่อยู่เว็บแล้วเลือก อนุญาต","service-not-allowed":"ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน","no-speech":"ไม่ได้ยินเสียง ลองพูดใกล้ไมโครโฟนอีกครั้ง","audio-capture":"ไม่พบไมโครโฟน","network":"การรู้จำเสียงต้องใช้อินเทอร์เน็ต"}[code]; if(m) toast(m); }
+const VD_ALIAS=[["แดชบอร์ด","dash"],["หน้าแรก","dash"],["ตั้งชื่อ","topic"],["หัวข้อวิจัย","topic"],["เขียน","write"],["บทที่","write"],["พาราเฟรส","rewrite"],["เรียบเรียง","rewrite"],["แปล","rewrite"],["จริยธรรม","ethics"],["สถิติ","stats"],["ขนาดตัวอย่าง","power"],["จีพาวเวอร์","power"],["แชต","chat"],["ค้นคว้า","chat"],["อ่านงานวิจัย","lit"],["ประเมินงานวิจัย","lit"],["คลังอ้างอิง","refs"],["ตรวจอ้างอิง","refaudit"],["ตรวจสอบเอกสารอ้างอิง","refaudit"],["ข้อมูล","data"],["วิเคราะห์","data"],["สอดคล้อง","align"],["ไฟล์","files"],["ต้นฉบับ","files"],["สแกน","scan"],["ถ่ายภาพ","scan"],["บทคัดย่อ","abstract"],["ผู้ทรง","review"],["วารสาร","jrev"],["ส่งออก","export"],["เวิร์ด","export"],["word","export"],["ไดรฟ์","gdrive"],["ตั้งค่า","ai"],["ผู้ใช้","users"],["โควตา","users"],["ข้อมูลตั้งต้น","setup"]];
+function vdCommand(raw){
+  const t=raw.trim(); const n=t.replace(/\s+/g,"").toLowerCase(); if(!n) return;
+  let m=t.match(/^(ค้นหา|ค้น|หา|search)\s*(.+)$/i);
+  if(m){ const q=m[2].trim(); botOpen(true); const i=$("#bIn"); if(i){ i.value="ค้นหางานวิจัยเรื่อง "+q; botVoiceAsk=true; chatSend("#bIn"); } vdSay("ค้นหา: "+q); return; }
+  m=t.match(/^(พิมพ์|จด)\s*(.+)$/);
+  if(m&&VD.last&&document.contains(VD.last)){ const f=VD.last; f.value+=(f.value&&!/\s$/.test(f.value)?" ":"")+vdClean(m[2]); f.dispatchEvent(new Event("input",{bubbles:true})); f.focus(); vdSay("พิมพ์แล้ว ✓"); return; }
+  const body=n.replace(/^(ไปที่|ไปหน้า|เปิดหน้า|เปิดเมนู|ไป|เปิด|เมนู)/,"");
+  const items=navFor().filter(x=>x[0]!=="grp");
+  let hit=items.find(([k,l])=>{ const L=l.replace(/\s+/g,"").toLowerCase(); return body&&(L===body||L.includes(body)||body.includes(L)); });
+  if(!hit){ const a=VD_ALIAS.find(([w])=>body.includes(w.toLowerCase())); if(a) hit=items.find(x=>x[0]===a[1]); }
+  if(hit){ if(!S.p&&!["welcome","ai","users","scan","rewrite","jrev","gdrive"].includes(hit[0])) toast("สร้างหรือเปิดโครงการก่อน จึงใช้เมนูนี้ได้"); go(hit[0]); vdSay("เปิด "+hit[1]); return; }
+  if(/^(หยุด|ยกเลิก|ปิด)$/.test(n)){ vdSay("หยุดแล้ว"); return; }
+  if(/^(ออกจากระบบ|logout)$/.test(n)){ authLogout(); return; }
+  botOpen(true); const i=$("#bIn"); if(i){ i.value=t; botVoiceAsk=true; chatSend("#bIn"); } vdSay("ถามน้องค้นคว้า: "+t);
+}
+function vdListenCommand(){
+  if(!SR){ toast("เบราว์เซอร์นี้ไม่รองรับการสั่งด้วยเสียง ใช้ Chrome, Edge หรือ Safari"); return; }
+  if(VD.on){ vdStop(); return; }
+  try{ speechSynthesis&&speechSynthesis.cancel(); }catch{}
+  const rec=new SR(); VD.rec=rec; rec.lang=VD.lang; rec.interimResults=true; rec.continuous=false; let fin="";
+  rec.onresult=ev=>{ let interim=""; for(let i=ev.resultIndex;i<ev.results.length;i++){ const t=ev.results[i][0].transcript; if(ev.results[i].isFinal) fin+=t; else interim+=t; } vdSay("🎤 "+(fin+interim),true); };
+  rec.onerror=ev=>vdErr(ev.error);
+  rec.onend=()=>{ VD.on=false; VD.mode=null; vdUI(); if(fin.trim()) vdCommand(fin); else vdSay(""); };
+  try{ rec.start(); VD.on=true; VD.mode="cmd"; vdUI(); vdSay("พูดคำสั่งได้เลย เช่น “ไปที่เขียนรายบท” “ค้นหา การพลัดตกในผู้สูงอายุ” หรือถามคำถาม",true); }catch{ toast("เริ่มฟังไม่ได้ ลองอีกครั้ง"); }
+}
+function initVoiceDock(){
+  if(!SR) return;
+  const dk=document.createElement("div"); dk.id="vdock"; dk.hidden=true;
+  dk.innerHTML=`<button type="button" id="vdMic" aria-label="พิมพ์ด้วยเสียงลงช่องนี้" title="พิมพ์ด้วยเสียง"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11Z"/></svg></button><button type="button" id="vdLang" aria-label="สลับภาษาที่พูด ไทย/อังกฤษ" title="สลับภาษาที่พูด">ไทย</button>`;
+  document.body.appendChild(dk);
+  const cmd=document.createElement("button"); cmd.type="button"; cmd.id="vCmd"; cmd.className="vcmd"; cmd.setAttribute("aria-label","สั่งงานหรือพิมพ์ด้วยเสียง"); cmd.title="สั่งงานหรือพิมพ์ด้วยเสียง";
+  cmd.innerHTML=`<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11Z"/></svg>`;
+  document.body.appendChild(cmd);
+  const bub=document.createElement("div"); bub.id="vdBubble"; bub.className="vd-bubble"; bub.hidden=true; bub.setAttribute("role","status"); bub.setAttribute("aria-live","polite"); document.body.appendChild(bub);
+  [dk,cmd].forEach(x=>x.addEventListener("mousedown",e=>e.preventDefault()));
+  $("#vdMic").onclick=()=>{ const f=VD.field; if(f&&document.contains(f)) vdType(f); };
+  $("#vdLang").onclick=()=>{ VD.lang=VD.lang==="th-TH"?"en-US":"th-TH"; try{ localStorage.setItem("nrw:vdLang",VD.lang); }catch{} vdUI(); vdSay(VD.lang==="th-TH"?"พูดภาษาไทย":"Speak English"); };
+  cmd.onclick=()=>{ if(VD.on){ vdStop(); return; } const a=document.activeElement; if(vdOk(a)) vdType(a); else vdListenCommand(); };
+  document.addEventListener("focusin",e=>{ if(vdOk(e.target)){ VD.field=e.target; VD.last=e.target; vdPlace(); } else if(!e.target.closest||!e.target.closest("#vdock")){ if(!VD.on){ VD.field=null; dk.hidden=true; } } });
+  document.addEventListener("focusout",()=>setTimeout(()=>{ const a=document.activeElement; if(!VD.on&&!vdOk(a)){ VD.field=null; dk.hidden=true; } },120));
+  addEventListener("scroll",()=>VD.field&&vdPlace(),true); addEventListener("resize",()=>VD.field&&vdPlace());
+  document.addEventListener("input",e=>{ if(e.target===VD.field) vdPlace(); },true);
+  new MutationObserver(()=>{ if(VD.field&&!document.contains(VD.field)){ if(VD.on) vdStop(); VD.field=null; dk.hidden=true; } }).observe(document.body,{childList:true,subtree:true});
+  vdUI();
+}
+
 function chatRefresh(){ if(S.view==="chat") vChat(); botDraw(); }
 function initBot(){
   const fab=$("#botFab"); if(!fab) return;
@@ -4467,7 +4563,7 @@ function vExport(){
 
 /* ============ เริ่มทำงาน ============ */
 (async function init(){
-  renderNav(); initBot(); gasAutoStart(); a11yWatch();
+  renderNav(); initBot(); initVoiceDock(); gasAutoStart(); a11yWatch();
   const c=window.claude; const use=n=> c&&c.use ? c.use(n).catch(()=>null) : Promise.resolve(null);
   const [db,user,sample,dl]=await Promise.all([use("db"),use("user"),use("sample"),use("downloads")]);
   S.claudeSample=sample; S.dl=dl; S.refs=[]; S.chat=[]; S.provider=null; applyAIMode(); authStart();
