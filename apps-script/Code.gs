@@ -35,7 +35,7 @@ const TZ        = 'Asia/Bangkok';
 const ADMIN_PROOF = '__ADMIN_PROOF__';
 
 const SHEETS = {
-  Projects:   ['รหัสโครงการ','ชื่อเรื่อง (ไทย)','ชื่อเรื่อง (อังกฤษ)','หัวข้อ/ประเด็น','ผู้วิจัย','รูปแบบอ้างอิง','หัวข้อที่เขียนแล้ว','จำนวนคำ','เอกสารในคลังอ้างอิง','บันทึกล่าสุด','ไฟล์สำรอง (ลิงก์)','รหัสไฟล์สำรอง','บันทึกโดย'],
+  Projects:   ['รหัสโครงการ','ชื่อเรื่อง (ไทย)','ชื่อเรื่อง (อังกฤษ)','หัวข้อ/ประเด็น','ผู้วิจัย','รูปแบบอ้างอิง','หัวข้อที่เขียนแล้ว','จำนวนคำ','เอกสารในคลังอ้างอิง','บันทึกล่าสุด','ไฟล์สำรอง (ลิงก์)','รหัสไฟล์สำรอง','บันทึกโดย','เจ้าของ (ชื่อผู้ใช้)','ความก้าวหน้า (%)','ขั้นตอนล่าสุด'],
   References: ['รหัสโครงการ','ชื่อโครงการ','ลำดับ','รายการอ้างอิง (APA 7)','ผู้แต่ง','ปี','ชื่อเรื่อง','วารสาร/แหล่ง','DOI','URL','ยืนยันแล้ว','แหล่งที่มา','อัปเดต'],
   RefAudit:   ['รหัสโครงการ','ชื่อโครงการ','การอ้างในเนื้อหา','รายการอ้างอิง (APA 7)','สถานะ','หัวข้อที่อ้าง','ลิงก์ตรวจสอบ','ตรวจเมื่อ'],
   Markers:    ['รหัสโครงการ','ชื่อโครงการ','หัวข้อ','ป้าย','ข้อความ','ตรวจเมื่อ'],
@@ -93,7 +93,7 @@ function handle_(b) {
     }
     const res = fn(b);
     if (b.action === 'access' || b.action === 'meter' || b.action === 'acct') return out_(Object.assign({ ok: true }, res));
-    log_(b.action, b.pid || (b.project && b.project.id) || '', 'สำเร็จ', res && res.msg || '');
+    if (!b.auto) log_(b.action, b.pid || (b.project && b.project.id) || '', 'สำเร็จ', res && res.msg || '');
     return out_(Object.assign({ ok: true }, res));
   } catch (err) {
     log_(b.action, b.pid || '', 'ผิดพลาด', String(err && err.message || err));
@@ -103,7 +103,7 @@ function handle_(b) {
   }
 }
 
-const DATA_ACTIONS = ['saveProject', 'saveRefs', 'saveAudit', 'saveDocx'];
+const DATA_ACTIONS = ['saveProject', 'saveRefs', 'saveAudit', 'saveDocx', 'myProjects', 'myLoad'];
 const ADMIN_ACTIONS = ['listProjects', 'loadProject', 'adminList', 'adminSave', 'adminLog'];
 const ACTIONS = {
   /** ผู้ใช้เข้าสู่ระบบ: {u, ph} → ออกรหัสเซสชันใหม่ (เข้าจากเครื่องใหม่ เครื่องเดิมจะถูกออกจากระบบ) */
@@ -216,15 +216,40 @@ const ACTIONS = {
   /** บันทึกไฟล์สำรองโครงการ (ทับไฟล์เดิมของโครงการเดียวกัน) และอัปเดตทะเบียนโครงการ */
   saveProject(b) {
     const p = b.project || {}; if (!p.id) throw new Error('ไม่มีรหัสโครงการ');
-    const folder = sub_(DriveApp.getFolderById(FOLDER_ID), 'Projects');
+    const owner = ownerOf_(b);
+    const prev = projRow_(p.id);
+    if (prev && prev.owner && prev.owner !== owner && !isAdmin_(b)) throw new Error('โครงการนี้เป็นของผู้ใช้อื่น');
+    const root = sub_(DriveApp.getFolderById(FOLDER_ID), 'Projects');
+    const folder = owner === 'admin' ? root : sub_(sub_(root, 'ผู้ใช้'), owner);
     const name = safe_(p.title_th || p.topic || 'โครงการ') + ' [' + p.id + '].json';
-    let file = findByPid_(folder, p.id);
+    let file = prev && prev.fileId ? (function () { try { const f = DriveApp.getFileById(prev.fileId); return f.isTrashed() ? null : f; } catch (e) { return null; } })() : null;
+    if (!file) file = findByPid_(folder, p.id);
     if (file) { file.setContent(b.backup); file.setName(name); }
     else { file = folder.createFile(name, b.backup, 'application/json'); file.setDescription('nrw:' + p.id); }
-    const m = b.metrics || {};
+    const m = b.metrics || {}, pr = b.progress || {};
+    const sh = sheet_('Projects'); sh.getRange(1, 1, 1, SHEETS.Projects.length).setValues([SHEETS.Projects]);
     upsert_('Projects', p.id, [p.id, p.title_th || '', p.title_en || '', p.topic || '', p.researcher || '', b.citeStyle || '',
-      (m.filled || 0) + '/' + (m.total || 0), m.words || 0, m.refs || 0, now_(), file.getUrl(), file.getId(), b.by || '']);
-    return { fileId: file.getId(), url: file.getUrl(), msg: name };
+      (m.filled || 0) + '/' + (m.total || 0), m.words || 0, m.refs || 0, now_(), file.getUrl(), file.getId(), b.by || '',
+      (prev && prev.owner) || owner, pr.pct != null ? pr.pct : '', pr.stage || '']);
+    return { fileId: file.getId(), url: file.getUrl(), msg: name, savedAt: now_() };
+  },
+  /** รายการงานของผู้ใช้คนนี้ (หรือของแอดมิน) ที่สำรองไว้บน Drive */
+  myProjects(b) {
+    const owner = ownerOf_(b); const sh = sheet_('Projects'); const n = sh.getLastRow(); const L = SHEETS.Projects.length;
+    const rows = n > 1 ? sh.getRange(2, 1, n - 1, L).getValues() : [];
+    const fmt = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm') : String(v || '');
+    return { projects: rows.filter(r => String(r[0]) && (String(r[13] || '') || 'admin') === owner).map(r => ({
+      id: String(r[0]), title: String(r[1] || r[3] || '(ไม่มีชื่อ)'), progress: r[14] === '' ? null : Number(r[14]), stage: String(r[15] || ''),
+      filled: String(r[6] || ''), words: Number(r[7]) || 0, updated: fmt(r[9]), updatedMs: r[9] instanceof Date ? r[9].getTime() : 0 })).sort((a, b2) => b2.updatedMs - a.updatedMs) };
+  },
+  /** เรียกคืนงานของตนเองจาก Drive {pid} */
+  myLoad(b) {
+    const owner = ownerOf_(b); const r = projRow_(b.pid);
+    if (!r) throw new Error('ไม่พบงานนี้บน Drive');
+    if ((r.owner || 'admin') !== owner && !isAdmin_(b)) throw new Error('งานนี้เป็นของผู้ใช้อื่น');
+    let file = null; try { file = DriveApp.getFileById(r.fileId); } catch (e) {}
+    if (!file) throw new Error('ไม่พบไฟล์สำรองของงานนี้');
+    return { backup: file.getBlob().getDataAsString('UTF-8'), name: file.getName(), msg: file.getName() };
   },
 
   /** แทนที่คลังอ้างอิงของโครงการใน Sheet References */
@@ -270,6 +295,15 @@ const ACTIONS = {
     return { backup: file.getBlob().getDataAsString('UTF-8'), name: file.getName(), msg: file.getName() };
   }
 };
+
+/* ---------- เจ้าของงาน ---------- */
+function ownerOf_(b) { if (isAdmin_(b)) return 'admin'; const f = session_(b); if (!f) throw new Error('ต้องเข้าสู่ระบบก่อน'); return String(f.row[AC.U]).trim().toLowerCase(); }
+function projRow_(pid) {
+  const sh = sheet_('Projects'); const n = sh.getLastRow(); if (n < 2 || !pid) return null;
+  const L = SHEETS.Projects.length; const rows = sh.getRange(2, 1, n - 1, Math.max(L, sh.getLastColumn())).getValues();
+  const r = rows.find(x => String(x[0]) === String(pid)); if (!r) return null;
+  return { owner: String(r[13] || '').trim().toLowerCase(), fileId: String(r[11] || '') };
+}
 
 /* ---------- บัญชีผู้ใช้และโควตา token ---------- */
 function isAdmin_(b) { return ADMIN_PROOF && ADMIN_PROOF.indexOf('__') !== 0 && String(b.admin || '') === ADMIN_PROOF; }
