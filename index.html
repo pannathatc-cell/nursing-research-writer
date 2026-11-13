@@ -760,7 +760,7 @@ function setSave(st){
   const where = (S.mode==="db" ? "บันทึกในบัญชี Claude ของคุณ (ส่วนตัว)" : "บันทึกอัตโนมัติในเครื่องนี้")+(typeof cloudOn==="function"&&cloudOn()?`<br>☁️ Drive: ${CS.busy?"กำลังสำรอง…":CS.err?'<span class="err">สำรองไม่สำเร็จ</span>':"สำรองล่าสุด "+fmtAgo(cloudLastOf(S.p.id))}`:"");
   const m = {dirty:"มีการแก้ไขที่ยังไม่บันทึก", saving:"กำลังบันทึก…", ok:"บันทึกแล้ว", err:"บันทึกไม่สำเร็จ", idle:"พร้อมใช้งาน"}[st] || "";
   const net = navigator.onLine ? '<span class="tag good">ออนไลน์</span>' : '<span class="tag warn">ออฟไลน์</span>';
-  $("#saveState").innerHTML = `${net} <b>${m}</b><br>${where}${S.provider==="claude"?"<br>ผู้ช่วย: Claude":S.provider?`<br>ผู้ช่วย: ${esc(S.modelLabel||"")} (API key ในเบราว์เซอร์นี้)`:"<br>ยังไม่ได้เชื่อมผู้ช่วย AI — ดูเมนูตั้งค่าผู้ช่วย AI"}`;
+  $("#saveState").innerHTML = `${net} <b>${m}</b><br>${where}${S.provider==="none"?"<br>ผู้ช่วย AI: เฉพาะผู้ดูแลระบบ":S.provider==="claude"?"<br>ผู้ช่วย: Claude":S.provider?`<br>ผู้ช่วย: ${esc(S.modelLabel||"")} (API key ในเบราว์เซอร์นี้)`:"<br>ยังไม่ได้เชื่อมผู้ช่วย AI — ดูเมนูตั้งค่าผู้ช่วย AI"}`;
 }
 function saveMeta(){ const p=S.p; if(!p) return; p.updatedAt=Date.now(); schedule("p-"+p.id, ()=>JSON.parse(JSON.stringify(p)), 700); }
 function saveChapter(n){ const p=S.p; schedule(`p-${p.id}-c${n}`, ()=>({kind:"chapter",project:p.id,n,sections:S.chapters[n].sections}), 1200); }
@@ -866,6 +866,7 @@ const splitNote = t => { const i=t.indexOf("===หมายเหตุ==="); re
 
 /* ============ ตัวเรียกผู้ช่วย ============ */
 const ERR = {
+ admin_only:"ความสามารถ AI ขั้นสูง (เขียน ค้นคว้า ตรวจ แปล และขัดเกลาภาษาด้วย AI) ใช้ได้เฉพาะผู้ดูแลระบบ บัญชีผู้ใช้ใช้ฟังก์ชันพื้นฐานของโปรแกรมได้ตามปกติ หากต้องการใช้ความสามารถนี้ กรุณาติดต่อผู้ดูแลระบบ",
  quota_out:"token ของบัญชีนี้หมดแล้ว กรุณาติดต่อผู้ดูแลระบบ (admin) เพื่อเติม token", not_logged:"กรุณาเข้าสู่ระบบก่อนใช้ผู้ช่วย AI",
  not_granted:"ยังไม่ได้อนุญาตให้หน้านี้ใช้ Claude เปิดหน้านี้ใหม่และกดอนุญาตเมื่อระบบถาม",
  sampling_disabled:"บัญชีหรือองค์กรนี้ปิดการใช้ Claude ผ่านหน้าเว็บ", not_declared:"หน้านี้ไม่ได้เปิดสิทธิ์ใช้ผู้ช่วย",
@@ -1131,12 +1132,25 @@ function makeGeminiSample(key, model){
 function activeProv(){ const p=lsGet(PROV_LS); if(PROVIDERS[p]) return p; return ["anthropic","openai","gemini","custom"].find(x=>lsGet(PROVIDERS[x].keyLS))||(keyOf("custom")?"custom":"anthropic"); }
 const MODE_LS="nrw:aimode";
 /* key ที่ผู้ใช้กำหนดไว้ล่วงหน้า (OpenAI) ใช้เมื่อยังไม่มี key ในเบราว์เซอร์ ลบได้ที่หน้าตั้งค่า */
-const PRESET_KEY={custom:"sk-GH7JYSTyvuza1va362q377o1sYuVOyAZLuXo8OfpfmXnJWh1"}; const PRESET_OFF="nrw:preset_off";
-function keyOf(prov){ return lsGet(PROVIDERS[prov].keyLS) || (PRESET_KEY[prov] && !lsGet(PRESET_OFF) ? PRESET_KEY[prov] : ""); }
+/* API key ของระบบถูกเข้ารหัสด้วยรหัสผ่านผู้ดูแลระบบ (AES-GCM + PBKDF2) ถอดได้เฉพาะเมื่อแอดมินเข้าสู่ระบบ */
+const PRESET_ENC={custom:{"s":"uRipi4WlRyHMZWTYfmq2CA==","i":"gkRfpa/TAz/wZWb4","c":"hPwLwSnQNg2ISOaq9guRHaFVOSPxEIpB1ArcELKTW+rSmh6aJ5FxlKkLACXRYNQAidKkQ2XQpaSCuMIyPdFzZ3RDlA=="}}; const PRESET_KEY={}; const PRESET_OFF="nrw:preset_off";
+async function presetUnlock(pw){
+  const b=x=>Uint8Array.from(atob(x),c=>c.charCodeAt(0)); const out={};
+  for(const [prov,e] of Object.entries(PRESET_ENC)){ try{ const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+    const k=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b(e.s),iterations:250000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+    out[prov]=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b(e.i)},k,b(e.c))); }catch{} }
+  return out;
+}
+function presetSet(keys){ Object.keys(PRESET_KEY).forEach(k=>delete PRESET_KEY[k]); Object.assign(PRESET_KEY,keys||{}); }
+function keyOf(prov){ if(AUTH_ROLE!=="admin") return ""; return lsGet(PROVIDERS[prov].keyLS) || (PRESET_KEY[prov] && !lsGet(PRESET_OFF) ? PRESET_KEY[prov] : ""); }
+/* ผู้ใช้ทั่วไป: ไม่มี AI ขั้นสูง ทุกปุ่มที่เรียก AI จะแจ้งว่าใช้ได้เฉพาะผู้ดูแลระบบ */
+const hasAI=()=>!!S.sample&&S.provider!=="none";
+const AI_STUB=Object.assign(async()=>{ throw {code:"admin_only"}; },{json:async()=>{ throw {code:"admin_only"}; },limits:async()=>({})});
 const CLAUDE_MODEL="claude-opus-5-5";
 function withModel(f){ if(!f) return f; const add=o=>({modelTier:"complex",model:CLAUDE_MODEL,...(o||{})}); const g=(i,o)=>f(i,add(o)); g.json=(i,o)=>f.json(i,add(o)); g.limits=(...a)=>f.limits(...a); return g; }
 function useClaudeAccount(){ S.sample=withModel(S.claudeSample); S.provider="claude"; S.modelLabel="Claude Opus 5.5 (บัญชี claude.ai)"; }
-function applyAIMode(){ const m=lsGet(MODE_LS); if(S.claudeSample && (m==="claude" || (!m && !keyOf("custom")))){ useClaudeAccount(); return; } S.provider=null; useOpenAIIfSet(); }
+function applyAIMode(){ if(AUTH_ROLE!=="admin"){ S.sample=AUTH_ROLE==="user"?AI_STUB:null; S.provider=AUTH_ROLE==="user"?"none":null; S.modelLabel=AUTH_ROLE==="user"?"เฉพาะผู้ดูแลระบบ":""; setSave&&setSave("idle"); return; }
+  const m=lsGet(MODE_LS); if(S.claudeSample && (m==="claude" || (!m && !keyOf("custom")))){ useClaudeAccount(); return; } S.provider=null; useOpenAIIfSet(); }
 function useOpenAIIfSet(){
   if(S.provider==="claude") return;
   const prov=activeProv(), P=PROVIDERS[prov], k=keyOf(prov), model=lsGet(P.modelLS)||P.def;
@@ -1630,7 +1644,7 @@ const BOT_HELP=()=>`คุณชื่อ "น้องค้นคว้า" �
 function botOpen(open){ const pn=$("#botPanel"), fab=$("#botFab"); if(!pn) return; pn.hidden=!open; fab.hidden=open; try{ localStorage.setItem("nrw:botTip","1"); }catch{} if($("#botTip")) $("#botTip").remove(); if(open){ ensureChatOpt(); botDraw(); setTimeout(()=>$("#bIn")&&$("#bIn").focus(),50); } }
 function botDraw(){
   const pn=$("#botPanel"); if(!pn||pn.hidden) return; const log=$("#bLog"); ensureChatOpt();
-  const st=$("#botStatus"); if(st) st.textContent = !S.sample ? "ยังไม่ได้เชื่อม AI: ค้นได้ แต่ยังสรุปคำตอบไม่ได้ (ตั้งค่าที่เมนูตั้งค่าผู้ช่วย AI)" : `เชื่อม ${S.provider==="claude"?"Claude":S.modelLabel||"AI"} แล้ว | ${S.p?"โครงการ: "+projName(S.p).slice(0,40):"ยังไม่ได้เปิดโครงการ"}`;
+  const st=$("#botStatus"); if(st) st.textContent = !hasAI() ? "ยังไม่ได้เชื่อม AI: ค้นได้ แต่ยังสรุปคำตอบไม่ได้ (ตั้งค่าที่เมนูตั้งค่าผู้ช่วย AI)" : `เชื่อม ${S.provider==="claude"?"Claude":S.modelLabel||"AI"} แล้ว | ${S.p?"โครงการ: "+projName(S.p).slice(0,40):"ยังไม่ได้เปิดโครงการ"}`;
   const hello=`<div class="bot-hello"><img alt="" src="${BOT_FACE}"><div class="bubble" style="border-top-left-radius:4px">สวัสดีค่ะ น้องค้นคว้าค่ะ ช่วยได้ 3 แบบนะคะ<br>1) <b>สืบค้นงานวิจัย</b> จาก PubMed, OpenAlex, ThaiJO และ Crossref แล้วสรุปพร้อมอ้างอิงที่ค้นเจอจริง<br>2) <b>ตอบคำถาม</b>ระเบียบวิธีวิจัย สถิติ และการเขียน${S.p?" โดยดูข้อมูลโครงการของคุณประกอบ":""}<br>3) <b>แนะนำวิธีใช้โปรแกรม</b>
    <div class="bot-chips">${BOT_CHIPS.map(([t,q],i)=>`<button type="button" data-chip="${i}">${t}</button>`).join("")}</div></div></div>`;
   log.innerHTML=hello+(S.chat||[]).map((m,i)=>m.role==="user"?msgHTML(m,i):`<div class="bot-hello"><img alt="" src="${BOT_FACE}"><div style="flex:1;min-width:0">${msgHTML(m,i)}</div></div>`).join("");
@@ -2928,7 +2942,7 @@ async function scRender(pg,max=1800,enh=SC.enhance){
     const span=Math.max(30,hi-lo); for(let i=0;i<a.length;i+=4){ let v=(a[i]-lo)*255/span; v=v<0?0:v>255?255:v; v=v>200?255:v; a[i]=a[i+1]=a[i+2]=v; } x.putImageData(d,0,0); }
   return c;
 }
-function scAIok(){ return !!S.sample && S.provider!=="claude"; }
+function scAIok(){ return !!S.sample && S.provider!=="claude" && S.provider!=="none"; }
 function vScan(){
   const M=$("#main"), n=SC.pages.length, cam=!!SC.stream, aiOk=scAIok();
   if(SC.engine==="ai"&&!aiOk) SC.engine="tess";
@@ -3044,24 +3058,24 @@ const userHashOf=(u,pw)=>sha256hex("nrw-user-2026|"+String(u).trim().toLowerCase
 function authCred(){ const a=AUTH_SESS; if(!a) return {}; if(a.role==="user") return {u:a.u,sid:a.sid}; return a.ap?{admin:a.ap}:{}; }
 function gasCodeFor(){ const ap=AUTH_SESS&&AUTH_SESS.ap; return ap?GAS_CODE.replace("'__ADMIN_PROOF__'","'"+ap+"'"):GAS_CODE; }
 function authSave(){ if(AUTH_SESS&&!AUTH_SESS.temp) lsSet(AUTH_LS,JSON.stringify(AUTH_SESS)); }
-function authSaved(){ try{ const a=JSON.parse(lsGet(AUTH_LS)||"null"); if(a&&a.exp>Date.now()&&(a.role==="admin"||(a.role==="user"&&a.sid))) return a; }catch{} return null; }
+function authSaved(){ try{ const a=JSON.parse(lsGet(AUTH_LS)||"null"); if(a&&a.exp>Date.now()&&((a.role==="admin"&&a.keys)||(a.role==="user"&&a.sid))) return a; }catch{} return null; }
 const fmtTok=n=>Math.max(0,Math.round(Number(n)||0)).toLocaleString("th-TH");
 function authBar(){
   const bar=$("#authBar"), a=AUTH_SESS; if(!bar) return; if(!a){ bar.hidden=true; return; } bar.hidden=false;
   if(a.role==="admin"){ bar.innerHTML=`<span>🛡️ <b>ผู้ดูแลระบบ</b></span>${a.temp?"":`<button type="button" id="authOut">ออกจากระบบ</button>`}`; }
   else { const q=Number(a.quota)||0, left=Math.max(0,Number(a.left)||0), pc=q?Math.max(0,Math.min(100,left/q*100)):0;
     bar.innerHTML=`<span>👤 <b>${esc(a.name||a.u)}</b></span><button type="button" id="authOut">ออกจากระบบ</button>
-     <div class="tokmeter" title="token คงเหลือ"><div class="tokbar"><i style="width:${pc.toFixed(1)}%" class="${pc<10?"low":""}"></i></div>
-     <span class="small">คงเหลือ <b>${fmtTok(left)}</b> / ${fmtTok(q)} token${a.exp?` · หมดอายุ ${esc(a.exp)}`:""}</span></div>`; }
+     ${a.quota>0&&S.provider!=="none"?`<div class="tokmeter" title="token คงเหลือ"><div class="tokbar"><i style="width:${pc.toFixed(1)}%" class="${pc<10?"low":""}"></i></div>
+     <span class="small">คงเหลือ <b>${fmtTok(left)}</b> / ${fmtTok(q)} token${a.exp?` · หมดอายุ ${esc(a.exp)}`:""}</span></div>`:`<div class="small muted" style="flex-basis:100%">บัญชีผู้ใช้ · ฟังก์ชันพื้นฐาน${a.exp?` · หมดอายุ ${esc(a.exp)}`:""}</div>`}`; }
   const o=$("#authOut"); if(o) o.onclick=()=>authLogout();
 }
 function authApply(a){
-  AUTH_SESS=a; AUTH_ROLE=a.role; renderNav(); authBar();
+  AUTH_SESS=a; AUTH_ROLE=a.role; presetSet(a.role==="admin"?a.keys:null); applyAIMode(); renderNav(); authBar();
   if(!authCan(S.view)) go(S.p?"dash":"welcome");
   ACC.state="off"; gateHide();
   if(INIT_DONE&&(!S.p||ownerOfP(S.p)!==authOwner())) loadMyWorkspace();
 }
-function authLogout(msg=""){ try{ flushAllSync(); if(CS.dirty>CS.last) cloudSave(true); }catch{} workspaceClear(); lsDel(AUTH_LS); AUTH_SESS=null; AUTH_ROLE="user"; authBar(); renderNav(); authShow("user",msg); }
+function authLogout(msg=""){ AUTH_ROLE="user"; try{ flushAllSync(); if(CS.dirty>CS.last) cloudSave(true); }catch{} workspaceClear(); lsDel(AUTH_LS); presetSet(null); AUTH_SESS=null; AUTH_ROLE="user"; applyAIMode(); authBar(); renderNav(); authShow("user",msg); }
 function authShow(tab="user",msg=""){
   const g=gateEl(); g.hidden=false; const last=(()=>{ try{ return JSON.parse(lsGet("nrw:lastUser")||'""'); }catch{ return ""; } })();
   g.innerHTML=`<form class="gate-card" id="loginForm" novalidate>${GATE_LOGO()}<h2 id="gateTitle">เข้าสู่ระบบ</h2><p class="sub">ผู้ช่วยเขียนงานวิจัยทางการพยาบาล<br>กรุณาเข้าสู่ระบบด้วยบัญชีที่ได้รับจากผู้ดูแลระบบ</p>
@@ -3078,7 +3092,7 @@ function authShow(tab="user",msg=""){
     if(!(window.crypto&&crypto.subtle)){ err.textContent="เบราว์เซอร์นี้ไม่รองรับการเข้าสู่ระบบ ใช้ Chrome หรือ Edge รุ่นใหม่"; return; }
     if(tab==="admin"){
       if(await sha256hex(AUTH.salt+pw)!==AUTH.admin){ err.textContent="รหัสผ่านไม่ถูกต้อง"; $("#lgPw").value=""; $("#lgPw").focus(); return; }
-      const a={role:"admin",name:"ผู้ดูแลระบบ",ap:await adminProofOf(pw),exp:Date.now()+12*3600e3}; authApply(a); authSave(); gateHide(); toast("เข้าสู่ระบบผู้ดูแลระบบแล้ว"); return; }
+      const a={role:"admin",name:"ผู้ดูแลระบบ",ap:await adminProofOf(pw),keys:await presetUnlock(pw),exp:Date.now()+12*3600e3}; authApply(a); authSave(); gateHide(); toast("เข้าสู่ระบบผู้ดูแลระบบแล้ว · เปิดใช้ API key ของระบบ"); return; }
     go_.disabled=true; err.textContent="กำลังตรวจสอบบัญชี…";
     try{ const j=await gas("login",{u,ph:await userHashOf(u,pw)});
       lsSet("nrw:lastUser",JSON.stringify(u));
@@ -3133,7 +3147,7 @@ function meterWrap(f){
   const g=(i,o)=>run(false,i,o); g.json=(i,o)=>run(true,i,o); g.limits=(...a)=>f.limits(...a); METER_W.set(f,g); return g;
 }
 (function(){ let raw=S.sample; Object.defineProperty(S,"sample",{configurable:true,enumerable:true,
-  get(){ return AUTH_ROLE==="user"&&raw?meterWrap(raw):raw; }, set(v){ raw=v; }}); })();
+  get(){ return AUTH_ROLE==="user"&&raw&&raw!==AI_STUB?meterWrap(raw):raw; }, set(v){ raw=v; }}); })();
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") authRefresh(); });
 
 /* ---------- หน้าแอดมิน: จัดการผู้ใช้และโควตา token ---------- */
@@ -3145,7 +3159,7 @@ function vUsers(){
     <div class="row"><input type="password" id="uaPw" autocomplete="current-password" style="max-width:280px" aria-label="รหัสผ่านผู้ดูแลระบบ"><button class="btn pri" id="uaUnlock" type="button">ยืนยัน</button></div><p class="err small" id="uaPwErr"></p>
     ${S.claudeSample?`<p class="small muted">หมายเหตุ: หน้านี้ใน claude.ai เชื่อมต่อ Google Apps Script ไม่ได้ ให้จัดการผู้ใช้จากเว็บไซต์ GitHub หรือไฟล์ .html ในเครื่อง</p>`:""}</div>`;
     $("#uaUnlock").onclick=async()=>{ const pw=$("#uaPw").value; if(await sha256hex(AUTH.salt+pw)!==AUTH.admin){ $("#uaPwErr").textContent="รหัสผ่านไม่ถูกต้อง"; return; }
-      AUTH_SESS={...(AUTH_SESS||{role:"admin",name:"ผู้ดูแลระบบ"}),ap:await adminProofOf(pw)}; authSave(); vUsers(); };
+      AUTH_SESS={...(AUTH_SESS||{role:"admin",name:"ผู้ดูแลระบบ"}),ap:await adminProofOf(pw),keys:await presetUnlock(pw)}; presetSet(AUTH_SESS.keys); applyAIMode(); authSave(); vUsers(); };
     return; }
   const L=UA.list, sum=L.reduce((s,x)=>(s.q+=x.quota,s.u+=x.used,s),{q:0,u:0});
   const PK=[[100000,"100,000"],[500000,"500,000"],[1000000,"1 ล้าน"],[5000000,"5 ล้าน"]];
@@ -4135,7 +4149,7 @@ function msgHTML(m,mi){
 function ensureChatOpt(){ S.chatOpt ||= {local:true,scholar:true,web:false,from:String(new Date().getFullYear()-10),dbs:{pubmed:true,openalex:true,thaijo:true,crossref:true}}; S.chatOpt.dbs.thaijo??=true; S.chatOpt.lib??=true; }
 function vChat(){
   const p=S.p; ensureChatOpt();
-  const o=S.chatOpt, ai=!!S.sample, oai=["openai","anthropic","gemini"].includes(S.provider), online=navigator.onLine;
+  const o=S.chatOpt, ai=hasAI(), oai=["openai","anthropic","gemini"].includes(S.provider), online=navigator.onLine;
   const nImp=S.refs.length; const mode = !online ? "ออฟไลน์: ค้นได้เฉพาะในงานของคุณ" : ai ? (S.provider==="claude"?"เชื่อม Claude: ตอบและสรุปได้ การค้นฐานข้อมูลวิชาการใช้ได้เมื่อเปิดไฟล์ในเครื่อง":`เชื่อม ${S.modelLabel}: ค้นฐานข้อมูลวิชาการ ค้นเว็บ และสรุปคำตอบได้`) : "ยังไม่ได้เชื่อมผู้ช่วย AI: ค้นฐานข้อมูลวิชาการและแสดงบทคัดย่อได้ แต่สรุปคำตอบไม่ได้";
   $("#main").innerHTML=`<h1>แชตผู้ช่วยค้นคว้า</h1>
   <p class="lead">ถามคำถาม ค้นงานวิจัยจาก PubMed, OpenAlex และ Crossref แล้วให้ผู้ช่วยสรุปคำตอบพร้อมอ้างอิงจากแหล่งที่ค้นพบจริง แทรกคำตอบลงหัวข้อในเล่ม และเพิ่มแหล่งลงคลังอ้างอิงได้ทันที รูปแบบอ้างอิงตอนนี้: <b>${STYLENAME[citeStyle()]}</b> <button class="btn ghost" data-go="refs">เปลี่ยน</button></p>
@@ -4178,7 +4192,7 @@ async function chatSend(inSel="#cIn"){
   const ctl=new AbortController(); S.chatCtl=ctl; S.chatBusy=true; const status=t=>{ bot.text=t; redraw(); };
   const redraw=()=>{ const log=$("#cLog"); if(log){ log.innerHTML=S.chat.map(msgHTML).join(""); log.scrollTop=log.scrollHeight; } if($("#cStop")) $("#cStop").hidden=!S.chatBusy; if($("#cSend")) $("#cSend").disabled=S.chatBusy; botDraw(); bindChatActions(); };
   redraw();
-  const online=navigator.onLine, ai=!!S.sample&&online, notes=[];
+  const online=navigator.onLine, ai=hasAI()&&online, notes=[];
   try{
     if(o.local&&S.p){ status("กำลังค้นในงานของคุณ…"); bot.local=await localSearch(q); }
     if(o.lib){ bot.sources=libSearch(q); }
@@ -4194,7 +4208,7 @@ async function chatSend(inSel="#cIn"){
       const parts=[]; if(bot.sources.length) parts.push(`พบงานวิจัย ${bot.sources.length} รายการ สรุปจากบทคัดย่อเบื้องต้น (ยังไม่ได้เชื่อมผู้ช่วย AI จึงยังสังเคราะห์คำตอบไม่ได้):\n`+bot.sources.map((it,i)=>{ const a=(it.abstract||"").split(/(?<=[.!?])\s+/).slice(0,2).join(" "); return `- **${it.meta.title}** ${a?a.slice(0,360):"(ไม่มีบทคัดย่อ)"} [S${i+1}]`; }).join("\n"));
       if(bot.local.length) parts.push(`พบข้อความเกี่ยวข้องในงานของคุณ ${bot.local.length} ตำแหน่ง ดูในส่วนข้อความจากงานของคุณ`);
       if(!parts.length) parts.push(online?"ไม่พบผลลัพธ์ ลองเปลี่ยนคำค้นหรือขยายช่วงปี":"ออฟไลน์อยู่ และไม่พบข้อความที่ตรงกับคำค้นในงานของคุณ");
-      if(!S.sample) notes.push("ใส่ API key ของ Claude, OpenAI หรือ Gemini ที่เมนูตั้งค่าผู้ช่วย AI เพื่อให้สรุปและตอบคำถามได้");
+      if(!hasAI()) notes.push(S.provider==="none"?"การสรุปคำตอบด้วย AI ใช้ได้เฉพาะผู้ดูแลระบบ ด้านล่างคือผลการค้นที่พบ":"ใส่ API key ของ Claude, OpenAI หรือ Gemini ที่เมนูตั้งค่าผู้ช่วย AI เพื่อให้สรุปและตอบคำถามได้");
       bot.text=parts.join("\n\n"); bot.note=notes.join(" | ");
     } else {
       const srcBlock=bot.sources.map((it,i)=>`[S${i+1}] ${formatAPA(it.meta).replace(/\*/g,"")}\nบทคัดย่อ: ${(it.abstract||"ไม่มีบทคัดย่อ").slice(0,1500)}`).join("\n\n");
