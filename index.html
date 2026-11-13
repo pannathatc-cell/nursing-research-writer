@@ -241,6 +241,12 @@ body:has(#gate:not([hidden])) .vcmd,body:has(#gate:not([hidden])) #vdock{display
 .cl-list{display:flex;flex-direction:column;gap:8px}.cl-item{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
 .dash-ban{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:12px 14px;margin:0 0 16px}
 .dash-ban .db-l{flex:1;min-width:240px}.warnline{margin-top:6px;color:var(--warn)}
+.pl-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:4px}
+.pl-list{margin:0;padding-left:18px;line-height:1.7}
+.pl-iss{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.pl-iss li{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface)}
+.pl-iss del{color:#b3261e}.pl-iss ins{color:var(--good);text-decoration:none;font-weight:600}
+.pl-t-tense{background:#fde7c8;color:#7a4b00}.pl-t-article,.pl-t-preposition{background:#e3ecfb;color:#1d4e9e}.pl-t-wordchoice,.pl-t-style{background:#efe3fb;color:#5b2d8e}
 /* ===== หน้าขอใช้งาน / รออนุมัติ ===== */
 .gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(18,32,38,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .gate[hidden]{display:none}
@@ -798,7 +804,7 @@ function renderProjSel(){
 /* ============ นำทาง ============ */
 const NAV = [
  ["grp","ติดตามงาน"],["dash","แดชบอร์ด"],["setup","ข้อมูลตั้งต้น"],["ai","ตั้งค่าผู้ช่วย AI"],["users","จัดการผู้ใช้และโควตา token"],
- ["grp","เขียนงาน"],["topic","ตั้งชื่อเรื่อง"],["write","เขียนรายบท"],["rewrite","เรียบเรียงและ Paraphraser"],["ethics","จริยธรรมการวิจัย"],["stats","สถิติการวิจัย"],["power","คำนวณขนาดตัวอย่าง (G*Power)"],["chat","แชตผู้ช่วยค้นคว้า"],["lit","อ่านและประเมินงานวิจัย"],["refs","คลังอ้างอิง"],["refaudit","ตรวจสอบเอกสารอ้างอิง (APA 7)"],["data","ข้อมูลและการวิเคราะห์"],["align","ตรวจความสอดคล้อง"],["files","ไฟล์และต้นฉบับ"],["scan","สแกนเอกสาร (ถ่ายภาพ)"],
+ ["grp","เขียนงาน"],["topic","ตั้งชื่อเรื่อง"],["write","เขียนรายบท"],["rewrite","เรียบเรียงและ Paraphraser"],["polish","ขัดเกลาภาษาให้เป็นธรรมชาติ"],["ethics","จริยธรรมการวิจัย"],["stats","สถิติการวิจัย"],["power","คำนวณขนาดตัวอย่าง (G*Power)"],["chat","แชตผู้ช่วยค้นคว้า"],["lit","อ่านและประเมินงานวิจัย"],["refs","คลังอ้างอิง"],["refaudit","ตรวจสอบเอกสารอ้างอิง (APA 7)"],["data","ข้อมูลและการวิเคราะห์"],["align","ตรวจความสอดคล้อง"],["files","ไฟล์และต้นฉบับ"],["scan","สแกนเอกสาร (ถ่ายภาพ)"],
  ["grp","ปิดโครงการ"],["abstract","บทคัดย่อ"],["review","โหมดผู้ทรงคุณวุฒิ"],["jrev","แก้ไขบทความตามผู้ทรงฯ วารสาร"],["export","ส่งออก Word"],["gdrive","บันทึกลง Google Drive"]
 ];
 function renderNav(){
@@ -807,10 +813,10 @@ function renderNav(){
 function go(v){
   if(!authCan(v)){ toast("เมนูนี้สำหรับผู้ดูแลระบบเท่านั้น หากต้องการใช้งาน กรุณาติดต่อผู้ดูแลระบบ"); v=S.view&&authCan(S.view)?S.view:(S.p?"dash":"welcome"); }
   if(S.ctl){ try{S.ctl.abort();}catch{} S.ctl=null; }
-  if(!S.p && v!=="welcome" && v!=="ai" && v!=="users" && v!=="scan" && v!=="gdrive" && v!=="rewrite" && v!=="jrev") v="welcome";
+  if(!S.p && v!=="welcome" && v!=="ai" && v!=="users" && v!=="scan" && v!=="polish" && v!=="gdrive" && v!=="rewrite" && v!=="jrev") v="welcome";
   if(v!=="scan"&&typeof scStopCam==="function") scStopCam();
   S.view=v; renderNav(); window.scrollTo(0,0);
-  const r = {scan:vScan,users:vUsers,power:vPower,chat:vChat,refs:vRefs,refaudit:vRefAudit,rewrite:vRewrite,lit:vLit,data:vData,ethics:vEthics,stats:vStats,ai:vAI,welcome:vWelcome,dash:vDash,setup:vSetup,topic:vTopic,write:vWrite,align:vAlign,files:vFiles,abstract:vAbstract,review:vReview,jrev:vJrev,export:vExport,gdrive:vGDrive}[v];
+  const r = {polish:vPolish,scan:vScan,users:vUsers,power:vPower,chat:vChat,refs:vRefs,refaudit:vRefAudit,rewrite:vRewrite,lit:vLit,data:vData,ethics:vEthics,stats:vStats,ai:vAI,welcome:vWelcome,dash:vDash,setup:vSetup,topic:vTopic,write:vWrite,align:vAlign,files:vFiles,abstract:vAbstract,review:vReview,jrev:vJrev,export:vExport,gdrive:vGDrive}[v];
   r();
   accessLogView(v); resumeSave(); if(v==="dash") dashBanner();
 }
@@ -1726,7 +1732,7 @@ function vdType(field){
   try{ rec.start(); VD.on=true; VD.mode="type"; vdUI(); vdSay("พูดได้เลย… กดไมค์อีกครั้งเพื่อหยุด",true); }catch{ toast("เริ่มฟังไม่ได้ ลองอีกครั้ง"); }
 }
 function vdErr(code){ const m={"not-allowed":"ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน กดไอคอนที่แถบที่อยู่เว็บแล้วเลือก อนุญาต","service-not-allowed":"ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน","no-speech":"ไม่ได้ยินเสียง ลองพูดใกล้ไมโครโฟนอีกครั้ง","audio-capture":"ไม่พบไมโครโฟน","network":"การรู้จำเสียงต้องใช้อินเทอร์เน็ต"}[code]; if(m) toast(m); }
-const VD_ALIAS=[["แดชบอร์ด","dash"],["หน้าแรก","dash"],["ตั้งชื่อ","topic"],["หัวข้อวิจัย","topic"],["เขียน","write"],["บทที่","write"],["พาราเฟรส","rewrite"],["เรียบเรียง","rewrite"],["แปล","rewrite"],["จริยธรรม","ethics"],["สถิติ","stats"],["ขนาดตัวอย่าง","power"],["จีพาวเวอร์","power"],["แชต","chat"],["ค้นคว้า","chat"],["อ่านงานวิจัย","lit"],["ประเมินงานวิจัย","lit"],["คลังอ้างอิง","refs"],["ตรวจอ้างอิง","refaudit"],["ตรวจสอบเอกสารอ้างอิง","refaudit"],["ข้อมูล","data"],["วิเคราะห์","data"],["สอดคล้อง","align"],["ไฟล์","files"],["ต้นฉบับ","files"],["สแกน","scan"],["ถ่ายภาพ","scan"],["บทคัดย่อ","abstract"],["ผู้ทรง","review"],["วารสาร","jrev"],["ส่งออก","export"],["เวิร์ด","export"],["word","export"],["ไดรฟ์","gdrive"],["ตั้งค่า","ai"],["ผู้ใช้","users"],["โควตา","users"],["ข้อมูลตั้งต้น","setup"]];
+const VD_ALIAS=[["แดชบอร์ด","dash"],["หน้าแรก","dash"],["ตั้งชื่อ","topic"],["หัวข้อวิจัย","topic"],["เขียน","write"],["บทที่","write"],["ขัดเกลา","polish"],["ภาษาธรรมชาติ","polish"],["แกรมมาร์","polish"],["ไวยากรณ์","polish"],["พาราเฟรส","rewrite"],["เรียบเรียง","rewrite"],["แปล","rewrite"],["จริยธรรม","ethics"],["สถิติ","stats"],["ขนาดตัวอย่าง","power"],["จีพาวเวอร์","power"],["แชต","chat"],["ค้นคว้า","chat"],["อ่านงานวิจัย","lit"],["ประเมินงานวิจัย","lit"],["คลังอ้างอิง","refs"],["ตรวจอ้างอิง","refaudit"],["ตรวจสอบเอกสารอ้างอิง","refaudit"],["ข้อมูล","data"],["วิเคราะห์","data"],["สอดคล้อง","align"],["ไฟล์","files"],["ต้นฉบับ","files"],["สแกน","scan"],["ถ่ายภาพ","scan"],["บทคัดย่อ","abstract"],["ผู้ทรง","review"],["วารสาร","jrev"],["ส่งออก","export"],["เวิร์ด","export"],["word","export"],["ไดรฟ์","gdrive"],["ตั้งค่า","ai"],["ผู้ใช้","users"],["โควตา","users"],["ข้อมูลตั้งต้น","setup"]];
 const VD_PROG=/ความก้าวหน้า|ถึงไหน|งานของฉัน|เรียกคืน/;
 function vdCommand(raw){
   const t=raw.trim(); const n=t.replace(/\s+/g,"").toLowerCase(); if(!n) return;
@@ -1739,7 +1745,7 @@ function vdCommand(raw){
   const items=navFor().filter(x=>x[0]!=="grp");
   let hit=items.find(([k,l])=>{ const L=l.replace(/\s+/g,"").toLowerCase(); return body&&(L===body||L.includes(body)||body.includes(L)); });
   if(!hit){ const a=VD_ALIAS.find(([w])=>body.includes(w.toLowerCase())); if(a) hit=items.find(x=>x[0]===a[1]); }
-  if(hit){ if(!S.p&&!["welcome","ai","users","scan","rewrite","jrev","gdrive"].includes(hit[0])) toast("สร้างหรือเปิดโครงการก่อน จึงใช้เมนูนี้ได้"); go(hit[0]); vdSay("เปิด "+hit[1]); return; }
+  if(hit){ if(!S.p&&!["welcome","ai","users","scan","polish","rewrite","jrev","gdrive"].includes(hit[0])) toast("สร้างหรือเปิดโครงการก่อน จึงใช้เมนูนี้ได้"); go(hit[0]); vdSay("เปิด "+hit[1]); return; }
   if(/^(หยุด|ยกเลิก|ปิด)$/.test(n)){ vdSay("หยุดแล้ว"); return; }
   if(/^(ออกจากระบบ|logout)$/.test(n)){ authLogout(); return; }
   botOpen(true); const i=$("#bIn"); if(i){ i.value=t; botVoiceAsk=true; chatSend("#bIn"); } vdSay("ถามน้องค้นคว้า: "+t);
@@ -2569,6 +2575,190 @@ async function jrDocx(body){
   zip.file("word/_rels/document.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file("word/document.xml",doc); zip.file("word/styles.xml",styles);
   return await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+/* ============ ขัดเกลาภาษาให้เป็นธรรมชาติ (ไทย/อังกฤษ) + ไวยากรณ์และ tense ภาษาอังกฤษ + คำชี้แจงการใช้ AI ============ */
+const PL_LS="nrw:polish";
+function plState(){ try{ return {tab:"natural",lang:"auto",reg:"journal",lvl:2,fresh:true,cliche:true,sec:"general",variety:"us",tool:"Claude (Anthropic)",uses:["lang","grammar"],dlang:"en",...JSON.parse(localStorage.getItem(PL_LS)||"{}")}; }catch{ return {tab:"natural",lang:"auto",reg:"journal",lvl:2,fresh:true,cliche:true,sec:"general",variety:"us",tool:"Claude (Anthropic)",uses:["lang","grammar"],dlang:"en"}; } }
+function plSave(o){ try{ localStorage.setItem(PL_LS,JSON.stringify({...plState(),...o})); }catch{} }
+const PL_TABS=[["natural","ขัดเกลาภาษาให้เป็นธรรมชาติ"],["grammar","ไวยากรณ์และ tense ภาษาอังกฤษ"],["disclose","คำชี้แจงการใช้ AI"]];
+const PL_LVL=["ปรับเบา: แก้เฉพาะสำนวนที่แข็งหรือซ้ำ คงโครงประโยคเดิมเกือบทั้งหมด","ปรับกลาง: เรียบเรียงประโยคใหม่ให้ลื่นไหล คงลำดับความคิดและย่อหน้าเดิม","ปรับลึก: เรียบเรียงทั้งย่อหน้าใหม่ด้วยถ้อยคำของผู้เขียนเอง คงใจความและหลักฐานทุกข้อ"];
+const PL_SECS=[["general","ทั่วไป / ไม่ระบุ"],["abstract","Abstract"],["intro","Introduction / Background"],["lit","Literature review"],["methods","Methods"],["results","Results"],["discussion","Discussion"],["conclusion","Conclusion / Implications"]];
+const PL_TENSE={general:"ใช้ present simple กับข้อเท็จจริงทั่วไป และ past simple กับสิ่งที่ทำหรือพบในการศึกษานี้",
+  abstract:"Background/Objective: present หรือ past; Methods และ Results: past simple; Conclusion: present simple",
+  intro:"ข้อเท็จจริงและความรู้ที่ยอมรับทั่วไป: present simple; งานวิจัยที่ผ่านมา: past simple หรือ present perfect (เช่น Previous studies have shown…); วัตถุประสงค์: past หรือ present (This study aimed/aims to…)",
+  lit:"รายงานผลการศึกษาแต่ละเรื่อง: past simple (Smith (2020) found…); ข้อสรุปภาพรวมของงานหลายเรื่อง: present perfect หรือ present simple",
+  methods:"past simple ทั้งหมด มักใช้ passive voice ได้ (Participants were recruited…); เครื่องมือที่ยังใช้อยู่ทั่วไปใช้ present ได้",
+  results:"past simple (The intervention group showed…); การอ้างถึงตาราง/ภาพ: present simple (Table 2 shows…)",
+  discussion:"อธิบายความหมายของผล: present simple (These findings suggest…); เทียบกับงานอื่น: past simple; ข้อจำกัดและข้อเสนอแนะ: present หรือ modal (should, may)",
+  conclusion:"present simple และ modal verbs (This program can improve…; Nurses should…)"};
+const PL_USES=[["lang","ปรับปรุงภาษาและความสละสลวย","language editing and improving readability"],["grammar","ตรวจไวยากรณ์และการสะกด","grammar and spelling checks"],["translate","แปลภาษา","translation"],["summary","สรุปและจัดระเบียบเอกสารอ้างอิง","summarizing and organizing literature"],["draft","ร่างเนื้อหาบางส่วน","drafting parts of the text"],["analysis","ช่วยวางแผนการวิเคราะห์ข้อมูล","assisting with planning the data analysis"]];
+let plCtl=null;
+/* ดึงตัวเลข การอ้างอิง และคำย่อ จากต้นฉบับ เพื่อตรวจว่ายังอยู่ครบในฉบับที่ปรับ */
+function plFacts(t){
+  const nums=(t.match(/\d+(?:[.,]\d+)*\s*%?/g)||[]).map(x=>x.replace(/\s+/g,"")).filter(x=>x.replace(/[.,%]/g,"").length>=1);
+  const cites=(t.match(/\(([^()]*?\d{4}[a-z]?[^()]*?)\)|\[\d+(?:[-–,]\s*\d+)*\]/g)||[]);
+  const yrs=(t.match(/(?:19|20)\d{2}[a-z]?/g)||[]);
+  const abbr=(t.match(/\b[A-Z][A-Z0-9-]{1,}\b/g)||[]);
+  return {nums:[...new Set(nums)],cites:[...new Set(cites)],yrs:[...new Set(yrs)],abbr:[...new Set(abbr)]};
+}
+function plCheck(src,out){
+  const a=plFacts(src), o=out.replace(/\s+/g,""); const miss=[];
+  a.nums.forEach(n=>{ if(!o.includes(n)) miss.push("ตัวเลข "+n); });
+  a.yrs.forEach(y=>{ if(!out.includes(y)) miss.push("ปีอ้างอิง "+y); });
+  a.abbr.forEach(x=>{ if(!out.includes(x)) miss.push("คำย่อ "+x); });
+  return [...new Set(miss)];
+}
+function plPrompt(st,text){
+  const th=/[฀-๿]/.test(text), lang=st.lang==="auto"?(th?"th":"en"):st.lang;
+  const reg={journal:"บทความวิจัยสำหรับวารสารวิชาการ",grant:"ข้อเสนอโครงการวิจัยสำหรับแหล่งทุน",thesis:"รายงานวิจัยหรือวิทยานิพนธ์"}[st.reg];
+  const thRules=`- ใช้ภาษาเขียนทางการแบบที่อาจารย์พยาบาลไทยเขียนจริงใน${reg} ไม่ใช่ภาษาพูด ไม่ใช่ภาษาแปลจากอังกฤษ
+- ลดคำเชื่อมที่ใช้ซ้ำ ๆ เช่น "นอกจากนี้" "อย่างไรก็ตาม" "ดังนั้น" "ยิ่งไปกว่านั้น" "ในยุคปัจจุบัน" "มีบทบาทสำคัญ" "กล่าวโดยสรุป" ใช้เท่าที่จำเป็นและเลือกคำที่เหมาะกับความสัมพันธ์ของความจริง ๆ
+- เลี่ยงสำนวนแปลตรงตัว เช่น "การ...ของ...ของ..." ซ้อนกันยาว "ถูก..." ในความหมายที่ไม่ใช่ทางลบ "ทำการ..." "มีความ..." ที่ไม่จำเป็น
+- ใช้ศัพท์วิชาการพยาบาลภาษาไทยที่ใช้กันจริง ไม่ต้องวงเล็บภาษาอังกฤษถ้าไม่จำเป็น
+- เว้นวรรคตามหลักภาษาไทย ไม่เว้นวรรคระหว่างคำในประโยคเดียวกันโดยไม่จำเป็น`;
+  const enRules=`- Write natural, precise academic English as an experienced nurse researcher would for a ${{journal:"peer-reviewed nursing journal",grant:"research grant proposal",thesis:"research report or thesis"}[st.reg]}.
+- Avoid generic machine-like phrasing: "delve into", "in today's fast-paced world", "plays a crucial/pivotal role", "it is important to note that", "a testament to", "navigate the complexities", "comprehensive", "multifaceted", "landscape", "underscores", "fostering", "furthermore/moreover" at the start of many sentences, and lists of three adjectives.
+- Prefer concrete subjects and verbs, active voice where it reads better, appropriate hedging (may, suggest, indicate), consistent tense for the section, and correct articles and prepositions.`;
+  return `ปรับภาษาของข้อความต่อไปนี้ให้อ่านเป็นธรรมชาติ สละสลวย และเป็นทางการ เหมือนผู้เชี่ยวชาญที่เป็นมนุษย์เขียนเอง โดยใจความเหมือนต้นฉบับทุกประการ
+ภาษาผลลัพธ์: ${lang==="th"?"ภาษาไทย":"ภาษาอังกฤษ"}${(lang==="th")!==th?" (แปลจากต้นฉบับ)":""}
+ระดับการปรับ: ${PL_LVL[st.lvl-1]}
+
+กฎที่ห้ามละเมิด
+- คงข้อเท็จจริง ข้อค้นพบ ตัวเลข สถิติ ค่า p ร้อยละ ปี ชื่อเฉพาะ คำย่อ และการอ้างอิงในเนื้อหา (ผู้แต่ง, ปี) หรือ [ตัวเลข] ไว้ครบทุกตัว ในตำแหน่งที่สัมพันธ์กับข้อความเดิม
+- ห้ามเพิ่มข้อมูล ข้ออ้าง หรือการอ้างอิงใหม่ ห้ามตัดใจความสำคัญออก ห้ามเปลี่ยนความหมายหรือระดับความมั่นใจของข้อสรุป
+- คงจำนวนย่อหน้าและลำดับความคิดเดิม
+- เขียนให้ความยาวประโยคหลากหลาย ประโยคสั้นสลับยาวอย่างเป็นธรรมชาติ ไม่ขึ้นต้นประโยคด้วยรูปแบบเดียวกันติดกัน
+${st.fresh?"- เรียบเรียงด้วยถ้อยคำและโครงสร้างประโยคของผู้เขียนเอง ไม่คัดลอกวลียาวจากต้นฉบับ (แต่คงศัพท์เทคนิคและชื่อเครื่องมือวิจัยไว้)\n":""}${st.cliche?"- ตัดคำฟุ่มเฟือย คำซ้ำ และวลีสำเร็จรูปที่ทำให้ข้อความดูเหมือนเครื่องเขียน\n":""}${lang==="th"?thRules:enRules}
+
+ตอบเป็น JSON เท่านั้น:
+{"text":"ข้อความที่ปรับแล้วทั้งหมด (คั่นย่อหน้าด้วย \\n\\n)","changes":[{"what":"สิ่งที่ปรับ (สั้น ๆ)","why":"เหตุผลเป็นภาษาไทย"}],"keypoints":["ใจความสำคัญของต้นฉบับข้อละสั้น ๆ ที่ยังคงอยู่ครบในฉบับที่ปรับ"]}
+changes ไม่เกิน 8 ข้อ เน้นการเปลี่ยนแปลงที่สำคัญ
+
+ต้นฉบับ:
+"""
+${text}
+"""`;
+}
+function vPolish(){
+  const st=plState(), M=$("#main"), tab=st.tab, keys=S.p?bodyKeys():[];
+  const head=`<h1>ขัดเกลาภาษาให้เป็นธรรมชาติ</h1>
+  <p class="lead">ปรับข้อความวิชาการทั้งภาษาไทยและอังกฤษให้อ่านลื่นไหล เป็นทางการ และเป็นสำนวนของผู้เขียนเอง โดยคงใจความ ตัวเลข และการอ้างอิงไว้ครบ พร้อมตรวจไวยากรณ์และ tense ภาษาอังกฤษก่อนส่งตีพิมพ์</p>
+  <div class="rw-tabs" role="tablist">${PL_TABS.map(([k,l])=>`<button type="button" role="tab" data-pltab="${k}" aria-selected="${k===tab}">${l}</button>`).join("")}</div>`;
+  if(tab==="disclose"){ M.innerHTML=head+plDiscloseHTML(st); plDiscloseBind(); return; }
+  const bar=tab==="natural"?`<div class="rw-bar">
+      <label>ภาษาผลลัพธ์ <select id="plLang"><option value="auto" ${st.lang==="auto"?"selected":""}>ตามต้นฉบับ</option><option value="th" ${st.lang==="th"?"selected":""}>ไทย</option><option value="en" ${st.lang==="en"?"selected":""}>อังกฤษ</option></select></label>
+      <label>ใช้สำหรับ <select id="plReg"><option value="journal" ${st.reg==="journal"?"selected":""}>บทความวารสาร</option><option value="grant" ${st.reg==="grant"?"selected":""}>ข้อเสนอแหล่งทุน</option><option value="thesis" ${st.reg==="thesis"?"selected":""}>รายงานวิจัย/วิทยานิพนธ์</option></select></label>
+      <label>ระดับการปรับ <input type="range" id="plLvl" min="1" max="3" step="1" value="${st.lvl}" style="vertical-align:middle;width:90px"> <span id="plLvlL">${["เบา","กลาง","ลึก"][st.lvl-1]}</span></label></div>
+    <div class="rw-bar"><label><input type="checkbox" id="plFresh" ${st.fresh?"checked":""}> เรียบเรียงด้วยถ้อยคำของผู้เขียนเอง (ลดวลีที่ซ้ำกับต้นฉบับ)</label>
+      <label><input type="checkbox" id="plCliche" ${st.cliche?"checked":""}> ตัดคำซ้ำและวลีสำเร็จรูป</label></div>
+    <p class="small muted" style="margin:0 0 8px" id="plLvlD">${PL_LVL[st.lvl-1]}</p>`
+   :`<div class="rw-bar"><label>ส่วนของบทความ <select id="plSec">${PL_SECS.map(([k,l])=>`<option value="${k}" ${st.sec===k?"selected":""}>${l}</option>`).join("")}</select></label>
+      <label>รูปแบบภาษา <select id="plVar"><option value="us" ${st.variety==="us"?"selected":""}>American English</option><option value="uk" ${st.variety==="uk"?"selected":""}>British English</option></select></label></div>
+    <div class="note small" style="margin:0 0 10px"><b>Tense ที่เหมาะกับส่วนนี้:</b> <span id="plTense">${esc(PL_TENSE[st.sec])}</span></div>`;
+  M.innerHTML=head+bar+`
+  ${S.p?`<div class="row" style="margin:0 0 8px"><label class="small">ดึงข้อความจากหัวข้อ <select id="plFrom"><option value="">— เลือกหัวข้อ —</option>${keys.map(k=>`<option value="${k}">${esc(lbl(k))}</option>`).join("")}</select></label></div>`:""}
+  <div class="rw-grid">
+    <div class="rw-pane"><textarea id="plIn" placeholder="${tab==="natural"?"วางข้อความภาษาไทยหรืออังกฤษที่ต้องการขัดเกลา (ไม่เกินประมาณ 2,000 คำต่อครั้ง)":"Paste the English text to check grammar, tense, articles and academic style"}"></textarea>
+      <div class="rw-foot"><span id="plWc">0 คำ</span><span><button class="btn ghost" id="plClr" type="button">ล้าง</button> <button class="btn pri" id="plGo" type="button">${tab==="natural"?"ขัดเกลาภาษา":"ตรวจไวยากรณ์"}</button> <button class="btn" id="plStop" type="button" hidden>หยุด</button></span></div></div>
+    <div class="rw-pane"><div class="rw-out" id="plOut" aria-live="polite"><span class="ph">ผลลัพธ์จะแสดงที่นี่ คำที่ปรับจะถูกไฮไลต์</span></div>
+      <div class="rw-foot"><span class="rw-meter" id="plStat"></span><span><button class="btn ghost" id="plCopy" type="button">คัดลอก</button> <button class="btn ghost" id="plAgain" type="button" title="นำผลลัพธ์ไปเป็นต้นฉบับเพื่อปรับต่อ">ใช้ผลลัพธ์ปรับต่อ</button></span></div></div>
+  </div>
+  <p class="small" id="plMsg" style="margin:8px 0"></p>
+  <div id="plExtra"></div>
+  ${S.p?`<div class="row" style="margin:10px 0"><label>นำผลลัพธ์ไปใส่หัวข้อ <select id="plKey">${keys.map(k=>`<option value="${k}" ${S.cur&&S.cur.key===k?"selected":""}>${esc(lbl(k))}</option>`).join("")}</select></label><button class="btn" id="plRep" type="button">แทนที่ข้อความเดิม</button><button class="btn ghost" id="plIns" type="button">แทรกต่อท้าย</button></div>`:""}
+  <div class="note small" style="margin-top:12px"><b>ข้อควรรู้:</b> โหมดนี้ช่วยให้ภาษาสละสลวยและเป็นสำนวนของผู้เขียน แต่ไม่ได้ออกแบบมาเพื่อหลบเลี่ยงเครื่องตรวจ AI หรือเครื่องตรวจความซ้ำซ้อน วารสารและแหล่งทุนส่วนใหญ่ในปัจจุบันอนุญาตให้ใช้ AI ช่วยปรับภาษาได้ โดยให้ระบุการใช้ไว้ในบทความ (ดูแท็บ "คำชี้แจงการใช้ AI") ส่วนเนื้อหาที่นำมาจากงานของผู้อื่น แม้เรียบเรียงใหม่แล้ว ก็ยังต้องอ้างอิงแหล่งที่มาเสมอ ผู้เขียนควรตรวจทานทุกประโยคก่อนนำส่ง</div>`;
+  plBind(tab);
+}
+function plBind(tab){
+  const M=$("#main"); $$("[data-pltab]",M).forEach(b=>b.onclick=()=>{ const v=$("#plIn")?$("#plIn").value:""; plSave({tab:b.dataset.pltab}); vPolish(); if(v&&$("#plIn")){ $("#plIn").value=v; plCount(); } });
+  const on=(id,ev,fn)=>{ const e=$(id); if(e) e[ev]=fn; };
+  on("#plLang","onchange",e=>plSave({lang:e.target.value})); on("#plReg","onchange",e=>plSave({reg:e.target.value}));
+  on("#plLvl","oninput",e=>{ plSave({lvl:+e.target.value}); $("#plLvlL").textContent=["เบา","กลาง","ลึก"][e.target.value-1]; $("#plLvlD").textContent=PL_LVL[e.target.value-1]; });
+  on("#plFresh","onchange",e=>plSave({fresh:e.target.checked})); on("#plCliche","onchange",e=>plSave({cliche:e.target.checked}));
+  on("#plSec","onchange",e=>{ plSave({sec:e.target.value}); $("#plTense").textContent=PL_TENSE[e.target.value]; }); on("#plVar","onchange",e=>plSave({variety:e.target.value}));
+  on("#plFrom","onchange",e=>{ const k=e.target.value; if(!k) return; $("#plIn").value=sec(k).text||""; plCount(); if(!$("#plIn").value) toast("หัวข้อนี้ยังไม่มีข้อความ"); if($("#plKey")) $("#plKey").value=k; });
+  on("#plIn","oninput",plCount); on("#plClr","onclick",()=>{ $("#plIn").value=""; plCount(); });
+  on("#plGo","onclick",()=>tab==="natural"?plNatural():plGrammar()); on("#plStop","onclick",()=>{ try{ plCtl&&plCtl.abort(); }catch{} });
+  const outT=()=>$("#plOut").dataset.text||"";
+  on("#plCopy","onclick",()=>{ const t=outT(); if(!t){ toast("ยังไม่มีผลลัพธ์"); return; } copyText(t); });
+  on("#plAgain","onclick",()=>{ const t=outT(); if(!t){ toast("ยังไม่มีผลลัพธ์"); return; } $("#plIn").value=t; plCount(); });
+  on("#plRep","onclick",()=>{ const t=outT(); if(!t){ toast("ยังไม่มีผลลัพธ์"); return; } const k=$("#plKey").value, s=sec(k); s.prev=s.text; s.text=t; if(s.status==="empty") s.status="draft"; saveChapter(SECINFO[k].ch); toast(`แทนที่ข้อความใน ${lbl(k)} แล้ว (ย้อนกลับได้ในหน้าเขียนรายบท)`); });
+  on("#plIns","onclick",()=>{ const t=outT(); if(!t){ toast("ยังไม่มีผลลัพธ์"); return; } insertInto($("#plKey").value,t,"append"); toast("แทรกต่อท้ายแล้ว"); });
+}
+function plCount(){ const t=$("#plIn").value; $("#plWc").textContent=wcount(t).toLocaleString()+" คำ"; }
+function plStart(){ const text=$("#plIn").value.trim(), msg=$("#plMsg");
+  if(!text){ msg.textContent="วางหรือพิมพ์ข้อความทางซ้ายก่อน"; return null; }
+  if(!S.sample){ msg.innerHTML='ยังไม่ได้เชื่อม AI กรุณาติดต่อผู้ดูแลระบบ'; return null; }
+  if(text.length>12000){ msg.textContent="ข้อความยาวเกินไป แบ่งทำทีละไม่เกินประมาณ 2,000 คำ (ทีละ 2–4 ย่อหน้า)"; return null; }
+  plCtl=new AbortController(); $("#plGo").disabled=true; $("#plStop").hidden=false; $("#plOut").innerHTML='<span class="ph">กำลังขัดเกลา… ข้อความยาวอาจใช้เวลา 30–60 วินาที</span>'; $("#plExtra").innerHTML=""; msg.textContent="กำลังทำงาน…"; return text; }
+function plEnd(){ $("#plGo").disabled=false; $("#plStop").hidden=true; plCtl=null; }
+async function plNatural(){
+  const text=plStart(); if(!text) return; const st=plState(), msg=$("#plMsg"), out=$("#plOut");
+  try{
+    const j=await S.sample.json(plPrompt(st,text),{signal:plCtl.signal,modelTier:"complex"});
+    const res=String(j.text||"").replace(/^```\w*\n?|```$/g,"").trim(); if(!res) throw {code:"empty_completion"};
+    out.dataset.text=res; out.innerHTML=diffHTML(text,res);
+    const sameLang=/[฀-๿]/.test(text)===/[฀-๿]/.test(res);
+    const sim=sameLang?ngramSim(text,res):null, miss=sameLang?plCheck(text,res):[];
+    const hits=AI_PHRASES.filter(p=>res.includes(p)).length, hits0=AI_PHRASES.filter(p=>text.includes(p)).length;
+    $("#plStat").innerHTML=`<span>ผลลัพธ์ <b>${wcount(res).toLocaleString()}</b> คำ</span>${sim!=null?`<span>วลีที่ยังเหมือนต้นฉบับ <b>${sim}%</b></span>`:""}${sameLang&&/[฀-๿]/.test(res)?`<span>คำเชื่อมสำเร็จรูป ${hits0} → <b>${hits}</b></span>`:""}`;
+    $("#plExtra").innerHTML=`<div class="pl-cols">
+      <div class="panel"><h3 style="margin-top:0">ตรวจใจความครบถ้วน</h3>
+        ${miss.length?`<p class="err small" style="margin-top:0">ตรวจไม่พบในฉบับที่ปรับ ${miss.length} รายการ กรุณาตรวจและเติมกลับ: ${miss.map(esc).join(", ")}</p>`:`<p class="small" style="margin-top:0;color:var(--good)">✓ ตัวเลข ปีอ้างอิง และคำย่อจากต้นฉบับอยู่ครบ</p>`}
+        <ul class="small pl-list">${(j.keypoints||[]).slice(0,10).map(k=>`<li>✓ ${esc(k)}</li>`).join("")}</ul></div>
+      <div class="panel"><h3 style="margin-top:0">สิ่งที่ปรับและเหตุผล</h3><ul class="small pl-list">${(j.changes||[]).slice(0,8).map(c=>`<li><b>${esc(c.what||"")}</b>${c.why?` — <span class="muted">${esc(c.why)}</span>`:""}</li>`).join("")||"<li>—</li>"}</ul></div></div>`;
+    msg.textContent=miss.length?"ปรับแล้ว แต่มีบางรายการที่ต้องตรวจ (ดูด้านล่าง)":sim!=null&&sim>45?"ปรับแล้ว ยังมีวลีเหมือนต้นฉบับค่อนข้างมาก ลองเลือกระดับการปรับ ลึก":"เสร็จแล้ว อ่านทวนและตรวจความถูกต้องทางวิชาการอีกครั้งก่อนใช้";
+  }catch(e){ out.innerHTML='<span class="ph">ไม่ได้ผลลัพธ์</span>'; msg.textContent=e&&e.code==="cancelled"?"หยุดแล้ว":(ERR[e&&e.code]||ERR.upstream_error); }
+  plEnd();
+}
+async function plGrammar(){
+  const text=plStart(); if(!text) return; const st=plState(), msg=$("#plMsg"), out=$("#plOut");
+  if(/[฀-๿]/.test(text)&&!/[A-Za-z]{3,}/.test(text)){ msg.textContent="แท็บนี้สำหรับภาษาอังกฤษ ภาษาไทยให้ใช้แท็บ ขัดเกลาภาษาให้เป็นธรรมชาติ หรือเมนู เรียบเรียงและ Paraphraser → ตรวจไวยากรณ์"; plEnd(); out.innerHTML=""; return; }
+  try{
+    const j=await S.sample.json(`You are an experienced academic editor for international nursing journals. Check the English text below for grammar, verb tense, subject-verb agreement, articles (a/an/the), prepositions, word choice, punctuation, spelling (${st.variety==="uk"?"British":"American"} English), and academic style.
+Section of the paper: ${PL_SECS.find(x=>x[0]===st.sec)[1]}. Expected tense use: ${PL_TENSE[st.sec]}
+Rules: keep the author's meaning, data, numbers and citations exactly; do not add content; change only what improves correctness or clarity; keep the author's voice.
+Return JSON only:
+{"corrected":"the full corrected text","issues":[{"from":"exact original phrase (short, copied verbatim)","to":"replacement","type":"tense|grammar|article|preposition|word choice|punctuation|spelling|style","why":"คำอธิบายภาษาไทยสั้น ๆ ว่าผิดอย่างไร และหลักไวยากรณ์ที่เกี่ยวข้อง"}],"tense_summary":"สรุปภาษาไทย 1-2 ประโยคว่าการใช้ tense ในข้อความนี้เหมาะกับส่วนนี้หรือไม่","overall":"ความเห็นภาษาไทย 1-2 ประโยคเรื่องความเป็นธรรมชาติของภาษาและจุดที่ควรพัฒนา"}
+List at most 40 issues, most important first.
+
+Text:
+"""
+${text}
+"""`,{signal:plCtl.signal,modelTier:"complex"});
+    const fixed=String(j.corrected||text).trim(); out.dataset.text=fixed; out.innerHTML=diffHTML(text,fixed);
+    const iss=(j.issues||[]).filter(x=>x&&x.from); const T={tense:"Tense",grammar:"Grammar",article:"Article",preposition:"Preposition","word choice":"Word choice",punctuation:"Punctuation",spelling:"Spelling",style:"Style"};
+    const cnt={}; iss.forEach(x=>{ const t=String(x.type||"grammar").toLowerCase(); cnt[t]=(cnt[t]||0)+1; });
+    $("#plStat").innerHTML=`<span>พบ <b>${iss.length}</b> จุด</span>${cnt.tense?`<span>Tense <b>${cnt.tense}</b></span>`:""}`;
+    $("#plExtra").innerHTML=`${j.tense_summary||j.overall?`<div class="note small" style="margin:0 0 10px">${j.tense_summary?`<div><b>Tense:</b> ${esc(j.tense_summary)}</div>`:""}${j.overall?`<div><b>ภาพรวม:</b> ${esc(j.overall)}</div>`:""}</div>`:""}
+      ${iss.length?`<div class="row" style="margin-bottom:6px"><b>รายการแก้ไข</b><span class="small muted">เลือกเฉพาะจุดที่ต้องการ แล้วกด "ใช้เฉพาะที่เลือก"</span><button class="btn" id="plApplySel" type="button">ใช้เฉพาะที่เลือก</button></div>
+      <ul class="pl-iss">${iss.map((x,i)=>{ const t=String(x.type||"grammar").toLowerCase(); return `<li><label><input type="checkbox" data-pli="${i}" checked> <span class="tag pl-t-${t.replace(/\s/g,"")}">${esc(T[t]||x.type)}</span> <del>${esc(x.from)}</del> → <ins>${esc(x.to||"")}</ins></label>${x.why?`<div class="small muted">${esc(x.why)}</div>`:""}</li>`; }).join("")}</ul>`:`<p class="small" style="color:var(--good)">✓ ไม่พบข้อผิดพลาดทางไวยากรณ์ที่สำคัญ</p>`}`;
+    if($("#plApplySel")) $("#plApplySel").onclick=()=>{ let t=text; let n=0; $$("[data-pli]").forEach(c=>{ if(!c.checked) return; const x=iss[+c.dataset.pli]; if(t.includes(x.from)){ t=t.replace(x.from,x.to||""); n++; } });
+      out.dataset.text=t; out.innerHTML=diffHTML(text,t); msg.textContent=`ใช้การแก้ไข ${n} จุดที่เลือกแล้ว`; };
+    msg.textContent="เสร็จแล้ว ด้านขวาคือฉบับแก้ทั้งหมด หรือเลือกเฉพาะบางจุดจากรายการด้านล่าง";
+  }catch(e){ out.innerHTML='<span class="ph">ไม่ได้ผลลัพธ์</span>'; msg.textContent=e&&e.code==="cancelled"?"หยุดแล้ว":(ERR[e&&e.code]||ERR.upstream_error); }
+  plEnd();
+}
+function plDiscloseText(st){
+  const u=PL_USES.filter(x=>st.uses.includes(x[0]));
+  if(st.dlang==="th") return `คำชี้แจงการใช้ปัญญาประดิษฐ์: ในการจัดทำ${st.reg==="grant"?"ข้อเสนอโครงการ":"บทความ"}นี้ ผู้วิจัยใช้ ${st.tool} เพื่อ${u.map(x=>x[1]).join(" ")||"ปรับปรุงภาษา"} ผู้วิจัยได้ตรวจสอบ แก้ไข และรับผิดชอบต่อความถูกต้องของเนื้อหา ข้อมูล การวิเคราะห์ การอ้างอิง และข้อสรุปทั้งหมดด้วยตนเอง และไม่ได้ระบุเครื่องมือปัญญาประดิษฐ์เป็นผู้เขียน`;
+  return `Declaration of generative AI use: During the preparation of this ${st.reg==="grant"?"proposal":"manuscript"}, the author(s) used ${st.tool} for ${(L=>L.length<2?(L[0]||"language editing"):L.length===2?L[0]+", as well as "+L[1]:L.slice(0,-1).join(", ")+", and "+L[L.length-1])(u.map(x=>x[2]))}. After using this tool, the author(s) reviewed and edited the content as needed and take full responsibility for the content of the publication. The AI tool is not listed as an author.`;
+}
+function plDiscloseHTML(st){
+  return `<div class="panel"><p style="margin-top:0">วารสารและแหล่งทุนจำนวนมาก (เช่น วารสารในเครือ Elsevier, Springer Nature, Wiley และวารสารไทยหลายฉบับ) กำหนดให้ผู้เขียนระบุการใช้ AI ช่วยเขียนหรือปรับภาษา การระบุอย่างโปร่งใสช่วยป้องกันปัญหาในขั้นพิจารณาบทความ ตรวจข้อกำหนดของวารสารที่จะส่งอีกครั้งเสมอ</p>
+   <div class="grid2"><label class="f">เครื่องมือที่ใช้<input type="text" id="pdTool" value="${esc(st.tool)}"></label>
+    <label class="f">ภาษา<select id="pdLang"><option value="en" ${st.dlang==="en"?"selected":""}>English</option><option value="th" ${st.dlang==="th"?"selected":""}>ไทย</option></select></label>
+    <label class="f">ส่งที่<select id="pdReg"><option value="journal" ${st.reg!=="grant"?"selected":""}>วารสาร</option><option value="grant" ${st.reg==="grant"?"selected":""}>แหล่งทุน</option></select></label></div>
+   <fieldset class="sc-eng" style="margin-top:8px"><legend class="small muted">ใช้ AI ทำอะไรบ้าง</legend>${PL_USES.map(([k,l])=>`<label><input type="checkbox" data-pduse="${k}" ${st.uses.includes(k)?"checked":""}> ${l}</label>`).join("")}</fieldset>
+   <textarea id="pdOut" rows="6" class="docfont" style="width:100%;margin-top:10px">${esc(plDiscloseText(st))}</textarea>
+   <div class="row" style="margin-top:8px"><button class="btn pri" id="pdCopy" type="button">คัดลอกคำชี้แจง</button></div></div>`;
+}
+function plDiscloseBind(){
+  const M=$("#main"); $$("[data-pltab]",M).forEach(b=>b.onclick=()=>{ plSave({tab:b.dataset.pltab}); vPolish(); });
+  const upd=()=>{ const uses=$$("[data-pduse]").filter(c=>c.checked).map(c=>c.dataset.pduse); plSave({tool:$("#pdTool").value,dlang:$("#pdLang").value,reg:$("#pdReg").value,uses}); $("#pdOut").value=plDiscloseText(plState()); };
+  ["#pdTool","#pdLang","#pdReg"].forEach(id=>$(id).addEventListener("input",upd)); $("#pdLang").onchange=upd; $("#pdReg").onchange=upd; $$("[data-pduse]").forEach(c=>c.onchange=upd);
+  $("#pdCopy").onclick=()=>copyText($("#pdOut").value);
 }
 
 /* ============ บันทึกอัตโนมัติ สำรองขึ้น Google Drive เรียกคืนงาน ทำต่อจากเดิม และเช็คความก้าวหน้า ============ */
