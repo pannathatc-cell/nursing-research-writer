@@ -82,6 +82,7 @@ function doPost(e) {
 
 function handle_(b) {
   if (b.token !== TOKEN) return out_({ ok: false, error: 'Token ไม่ถูกต้อง ตรวจให้ตรงกับค่า TOKEN ใน Apps Script' });
+  if (b.action === 'ai') return aiProxy_(b);   // ไม่ล็อก เพื่อให้เรียก AI พร้อมกันหลายงานได้
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -295,6 +296,22 @@ const ACTIONS = {
     return { backup: file.getBlob().getDataAsString('UTF-8'), name: file.getName(), msg: file.getName() };
   }
 };
+
+/* ---------- ตัวกลางเรียก AI (เฉพาะแอดมิน) ----------
+   ผู้ให้บริการบางรายไม่อนุญาตให้เบราว์เซอร์เรียกตรง (CORS) โปรแกรมจึงส่งคำขอผ่าน Apps Script นี้แทน */
+function aiProxy_(b) {
+  if (!isAdmin_(b)) return out_({ ok: false, error: 'ความสามารถ AI ใช้ได้เฉพาะผู้ดูแลระบบ' });
+  const url = String(b.url || '');
+  if (!/^https:\/\/[a-z0-9.-]+(\/[a-z0-9._-]+)*\/v1\/(messages|chat\/completions)$/i.test(url)) return out_({ ok: false, error: 'ปลายทาง AI ไม่ถูกต้อง' });
+  if (!b.key || !b.body) return out_({ ok: false, error: 'ข้อมูลคำขอ AI ไม่ครบ' });
+  try {
+    const r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, followRedirects: true,
+      headers: { 'x-api-key': b.key, 'Authorization': 'Bearer ' + b.key, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(b.body) });
+    return out_({ ok: true, status: r.getResponseCode(), body: r.getContentText('UTF-8') });
+  } catch (err) {
+    return out_({ ok: false, error: 'เรียก AI ผ่าน Apps Script ไม่สำเร็จ: ' + String(err && err.message || err) });
+  }
+}
 
 /* ---------- เจ้าของงาน ---------- */
 function ownerOf_(b) { if (isAdmin_(b)) return 'admin'; const f = session_(b); if (!f) throw new Error('ต้องเข้าสู่ระบบก่อน'); return String(f.row[AC.U]).trim().toLowerCase(); }
